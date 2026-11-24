@@ -1,0 +1,3483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#121614">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Garden Railway</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<style>
+:root{
+  --bg:#121614; --panel:#1a211e; --panel2:#222b27; --line:#2e3a35;
+  --fg:#e7e5dc; --muted:#8fa096; --accent:#d2a85c; --accent2:#79b38d;
+  --good:#5db882; --warn:#d9974a; --bad:#e0705f; --sel:#6aa3f0;
+  --ui:"Segoe UI",system-ui,sans-serif;
+  --mono:"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--bg);color:var(--fg);font:13px/1.45 var(--ui);user-select:none}
+#app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);
+     grid-template-columns:168px minmax(0,1fr) 252px;
+     grid-template-areas:"bar bar bar" "pal stage info"}
+header{grid-area:bar;display:flex;align-items:center;gap:10px;padding:7px 12px;
+       background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{font-size:14px;margin:0;font-weight:600;letter-spacing:.2px;white-space:nowrap}
+h1 em{font-style:normal;color:var(--muted);font-weight:400;font-size:12px;margin-left:6px}
+.sp{flex:1}
+button{font:12px var(--ui);padding:5px 10px;border:1px solid var(--line);background:var(--panel2);
+       color:var(--fg);border-radius:4px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.on{background:var(--accent2);border-color:var(--accent2);color:#10201a;font-weight:600}
+button.go{background:var(--accent);border-color:var(--accent);color:#231a08;font-weight:600}
+button:disabled{opacity:.4;cursor:default}
+.seg{display:flex}
+.seg button{border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:4px 0 0 4px;margin-left:0}
+.seg button:last-child{border-radius:0 4px 4px 0}
+.pane .tilt{position:absolute;top:6px;right:10px}
+.pane .tilt button{font:11px var(--mono);padding:3px 7px}
+aside{background:var(--panel);overflow-y:auto;padding:10px;min-height:0}
+#palette{grid-area:pal;border-right:1px solid var(--line)}
+#info{grid-area:info;border-left:1px solid var(--line)}
+#stage{grid-area:stage;position:relative;background:var(--panel2);display:flex;
+       min-width:0;min-height:0;overflow:hidden}
+.pane{position:relative;flex:1 1 0;min-width:0;min-height:0}
+.pane+.pane{border-left:1px solid var(--line)}
+/* absolute so the canvas never feeds its own height back into the grid row */
+.pane canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block;touch-action:none}
+.pane .tag{position:absolute;top:8px;left:10px;font:11px var(--mono);color:var(--muted);
+           background:rgba(18,22,20,.82);padding:3px 7px;border-radius:3px;pointer-events:none}
+.pane .hint{position:absolute;bottom:8px;left:10px;right:10px;font:11px var(--mono);color:var(--muted);
+           background:rgba(18,22,20,.82);padding:4px 8px;border-radius:3px;pointer-events:none;
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+h2{font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+   margin:0 0 7px;font-weight:500}
+h2:not(:first-child){margin-top:15px}
+.pc{display:flex;align-items:center;gap:7px;padding:4px 6px;border:1px solid var(--line);
+    border-radius:4px;background:var(--panel2);cursor:grab;margin-bottom:4px}
+.pc:hover{border-color:var(--accent)}
+.pc canvas{flex:none}
+.pc span{font:11px var(--mono);line-height:1.2}
+.pc em{display:block;font-style:normal;color:var(--muted);font-size:9.5px}
+dl{display:grid;grid-template-columns:1fr auto;gap:0 8px;margin:0;font-size:12px}
+dt{color:var(--muted);padding:3px 0;border-bottom:1px dotted var(--line)}
+dd{margin:0;padding:3px 0;border-bottom:1px dotted var(--line);font-family:var(--mono);text-align:right}
+.big{font-size:23px;font-weight:600;color:var(--accent2);font-family:var(--mono)}
+.biglab{font-size:10.5px;color:var(--muted)}
+.flag{font-size:11px;padding:5px 8px;border-radius:3px;margin-top:5px;line-height:1.35}
+.flag.ok{background:rgba(93,184,130,.14);color:var(--good)}
+.flag.warn{background:rgba(217,151,74,.15);color:var(--warn)}
+.flag.bad{background:rgba(224,112,95,.15);color:var(--bad)}
+.row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+input[type=text]{flex:1;min-width:0;font:12px var(--ui);padding:5px 7px;border:1px solid var(--line);
+  border-radius:4px;background:var(--panel2);color:var(--fg)}
+input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+label{font-size:11.5px;color:var(--muted)}
+.lrow{display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px dotted var(--line);font-size:11.5px}
+.lrow b{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow span{font-family:var(--mono);color:var(--muted);font-size:10px}
+.lrow button{padding:2px 6px;font-size:10.5px}
+.empty{font-size:11px;color:var(--muted);padding:5px 0}
+.inv{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11.5px}
+.inv label{flex:1;min-width:0;color:var(--fg);overflow:hidden;
+           text-overflow:ellipsis;white-space:nowrap}
+.inv input{width:58px;flex:none;font:11px var(--mono);padding:3px 5px;
+           border:1px solid var(--line);border-radius:4px;background:var(--panel2);
+           color:var(--fg);text-align:right}
+.inv span{width:38px;flex:none;font:10px var(--mono);color:var(--muted)}
+.sf{display:grid;grid-template-columns:1fr auto;gap:0 8px;font-size:11.5px}
+.sf dt{color:var(--muted);padding:3px 0;border-bottom:1px dotted var(--line);
+       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sf dd{margin:0;padding:3px 0;border-bottom:1px dotted var(--line);
+       font-family:var(--mono);text-align:right}
+.sf dd.ok{color:var(--good)}
+.sf h4{grid-column:1/-1;font:10px var(--mono);letter-spacing:.08em;
+       text-transform:uppercase;color:var(--accent);margin:9px 0 1px;font-weight:500}
+.note{font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:8px}
+
+/* ===================== TOUCH AND SMALL SCREENS ============================
+   One interface for the desktop window and for an installed phone or tablet.
+   The two asides are fixed side panels on a wide screen and slide-over drawers
+   on a narrow one; the stage stacks instead of splitting when the screen is
+   taller than it is wide. Nothing below changes the desktop layout. */
+.mob{display:none}                       /* drawer toggles: narrow screens only */
+#hscroll{display:contents}
+#scrim{display:none;position:fixed;inset:0;z-index:20;background:rgba(8,10,9,.55)}
+#scrim.on{display:block}
+/* Piece actions. R/F/Del have no keyboard on a tablet, so the same four
+   actions sit on the plan whenever a piece is selected - handy with a mouse
+   too, since nothing on screen used to say the keys existed. */
+#selbar{position:absolute;right:10px;bottom:32px;z-index:5}
+#selbar button{font:11px var(--mono);padding:5px 9px}
+#selbar[hidden]{display:none}
+/* Thumb-sized hit targets wherever a finger is the pointer. Font sizes stay
+   put; only the padding grows, so no text reflows. */
+@media (pointer:coarse){
+  button{padding:8px 12px}
+  .pane .tilt button,#selbar button{padding:7px 10px}
+  .pc{padding:8px 7px;margin-bottom:6px}
+  .lrow{padding:7px 0}
+  .lrow button{padding:6px 9px;font-size:11px}
+  input[type=text]{padding:9px 8px}
+  input[type=range]{height:30px}
+}
+@media (max-width:900px){
+  #app{grid-template-columns:minmax(0,1fr);grid-template-areas:"bar" "stage"}
+  .mob{display:inline-block;flex:none}
+  header{padding:6px 8px;gap:7px;flex-wrap:nowrap;
+         padding-left:max(8px,env(safe-area-inset-left));
+         padding-right:max(8px,env(safe-area-inset-right));
+         padding-top:max(6px,env(safe-area-inset-top))}
+  /* Wrapped onto three rows the header took a fifth of a phone screen. One
+     row that scrolls sideways instead, with the two drawer buttons pinned at
+     its ends so neither can be scrolled out of reach. The app's name is on
+     the task switcher and does not need repeating here. */
+  h1{display:none}
+  #hscroll{display:flex;align-items:center;gap:7px;flex:1 1 0;min-width:0;
+           overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
+           -webkit-overflow-scrolling:touch}
+  #hscroll::-webkit-scrollbar{display:none}
+  #hscroll>*{flex:none}
+  .sp{display:none}
+  #speed{width:84px;flex:none}
+  aside{position:fixed;z-index:21;top:0;bottom:0;width:min(86vw,330px);
+        padding-top:max(10px,env(safe-area-inset-top));
+        transition:transform .18s ease-out;will-change:transform}
+  #palette{left:0;border-right:1px solid var(--line);transform:translateX(-101%)}
+  #info{right:0;border-left:1px solid var(--line);transform:translateX(101%)}
+  /* By id: #palette and #info set the closed transform, and an id beats a
+     class, so `aside.open` alone would never win. */
+  #palette.open,#info.open{transform:none;box-shadow:0 0 24px rgba(0,0,0,.5)}
+  #stage{padding-bottom:env(safe-area-inset-bottom)}
+}
+@media (max-width:900px){
+  /* The corner captions explain the mouse, and on a phone they collide with
+     the tilt buttons and with the pane below. The same words are in the
+     Pieces drawer, which is where someone looking for them goes. */
+  .pane .tag{display:none}
+  /* With the caption gone the tilt row has the width, and scrolls if the six
+     views still do not fit. */
+  .pane .tilt{left:8px;right:8px;top:8px;overflow-x:auto;scrollbar-width:none}
+  .pane .tilt::-webkit-scrollbar{display:none}
+  .pane .tilt button{flex:none}
+}
+/* Taller than wide: the two panes stack, so each keeps the full 45 ft width. */
+@media (max-width:900px) and (orientation:portrait){
+  #stage{flex-direction:column}
+  .pane+.pane{border-left:0;border-top:1px solid var(--line)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button class="mob" id="t-pal" title="Track pieces">Pieces</button>
+    <h1>Garden Railway<em id="sitelab"></em></h1>
+    <div id="hscroll">
+    <div class="seg" id="views">
+      <button data-v="2d">Plan</button>
+      <button data-v="split" class="on">Split</button>
+      <button data-v="3d">3D</button>
+    </div>
+    <div class="seg">
+      <button id="p-oval" title="The loop on its own — a complete railway, no turnouts">Oval</button>
+      <button id="p-full" title="The adopted design: loop, western yard and the south-leg passing siding">Yard + siding</button>
+      <button id="clear">Clear</button>
+    </div>
+    <div class="sp"></div>
+    <label>Speed</label><input type="range" id="speed" min="0.3" max="6" step="0.1" value="2" style="width:90px">
+    <button id="run" class="go">Run train</button>
+    <button id="scen" class="on">Scenery</button>
+    <button id="fit">Fit</button>
+    </div>
+    <button class="mob" id="t-info" title="Figures, layouts and buy list">Figures</button>
+    <!-- Chrome's own menu reports every app on stonecrestpipes.github.io as
+         already installed, because they share an origin. The page's own
+         prompt checks the start URL instead, so this button still works. -->
+    <button id="install" hidden title="Install on this device">Install</button>
+  </header>
+
+  <aside id="palette">
+    <h2>Straight</h2><div id="pal-s"></div>
+    <h2>Curves</h2><div id="pal-c"></div>
+    <h2>Turnouts</h2><div id="pal-t"></div>
+    <p class="note">Drag onto the plan. Snaps to any open end within a foot. Or tap an open
+    end, then tap a piece to append &mdash; on a phone a tap drops the piece in the middle of
+    the view, to be dragged from there.<br><br>Select a piece and the buttons on the plan
+    rotate, flip, throw and remove it. With a keyboard: R rotates · F flips ·
+    Del removes · double-click a turnout to throw it.<br><br>Drag bare ground to pan.
+    Pinch or wheel to zoom.</p>
+  </aside>
+
+  <div id="stage">
+    <div class="pane" id="pane2d"><canvas id="c2d"></canvas>
+      <div class="tag">PLAN &middot; 1 sq = 1 ft</div><div class="hint" id="hint2">&nbsp;</div>
+      <div class="seg" id="selbar" hidden><button id="s-rl" title="Rotate 15&deg; left (Shift+R)">&#8630;</button><button id="s-rr" title="Rotate 15&deg; right (R)">&#8631;</button><button id="s-flip" title="Flip a curve (F)">Flip</button><button id="s-throw" title="Throw a turnout (double-tap it)">Throw</button><button id="s-del" title="Remove (Del)">Remove</button></div></div>
+    <div class="pane" id="pane3d"><canvas id="c3d"></canvas>
+      <div class="tag">3D &middot; drag to orbit &middot; drag UP for eye level &middot; pinch or wheel to zoom</div>
+      <div class="seg tilt" id="tilt"><button data-pano="1" title="Stand in the garden: a 140&deg; stitched panorama, like the site photograph">Pano</button><button data-ph="1.46">Eye</button><button data-ph="1.20">Low</button><button data-ph="1.02" class="on">3/4</button><button data-ph="0.60">High</button><button data-ph="0.16">Top</button></div>
+      <div class="hint" id="hint3">&nbsp;</div></div>
+  </div>
+
+  <aside id="info">
+    <div style="display:flex;gap:16px;margin-bottom:10px">
+      <div><div class="big" id="k-len">0</div><div class="biglab">ft of track</div></div>
+      <div><div class="big" id="k-pcs">0</div><div class="biglab">pieces</div></div>
+    </div>
+    <h2>Circuit</h2>
+    <dl>
+      <dt>Status</dt><dd id="r-circ">&mdash;</dd>
+      <dt>Lap</dt><dd id="r-lap">&mdash;</dd>
+      <dt>Lap time</dt><dd id="r-time">&mdash;</dd>
+      <dt>Tightest radius</dt><dd id="r-rad">&mdash;</dd>
+      <dt>Open ends</dt><dd id="r-open">0</dd>
+      <dt>Turnouts</dt><dd id="r-turn">0</dd>
+    </dl>
+    <h2>Clearance</h2>
+    <dl>
+      <dt title="Daylight between the stock and the nearest surveyed obstacle">Nearest obstacle</dt><dd id="r-clear">&mdash;</dd>
+      <dt title="Room to the boundary, inside the 4.8 in setback">Boundary margin</dt><dd id="r-bdy">&mdash;</dd>
+    </dl>
+    <h2>Earthworks</h2>
+    <dl>
+      <dt>Deepest cut</dt><dd id="r-cut">&mdash;</dd>
+      <dt>Highest fill</dt><dd id="r-fill">&mdash;</dd>
+      <dt title="Track in cut deeper than 4.8 in — wants a retaining wall">In cut, walled</dt><dd id="r-wall">&mdash;</dd>
+      <dt title="Fill between 5.4 and 12 in — a compacted earth bench">Fill 5&ndash;12 in</dt><dd id="r-emb">&mdash;</dd>
+      <dt title="Fill over 12 in. Trestle or compacted bench is a design choice, not a depth rule — hover the figure">Fill over 12 in</dt><dd id="r-tres">&mdash;</dd>
+      <dt>Track plane</dt><dd id="r-plane">&mdash;</dd>
+    </dl>
+    <div id="flags"></div>
+    <h2>Layouts</h2>
+    <div class="row"><input type="text" id="lname" placeholder="Name this layout" maxlength="60"><button id="save">Save</button><button id="build"
+      title="Write a staged build plan for the layout on screen, as a PDF">Build</button></div>
+    <div id="llist"><p class="empty">&nbsp;</p></div>
+    <div class="row" style="margin-top:6px;flex-wrap:wrap"><button id="openfolder"
+      title="Open the layouts folder — the files are plain JSON and can be backed up or edited by hand"
+      >Open layouts folder</button><button id="export"
+      title="Save every layout to one JSON file — to back up, or to carry to another device"
+      >Export all</button><button id="import"
+      title="Read layouts back in: an export, or a single file from the layouts folder"
+      >Import…</button>
+      <input type="file" id="importfile" accept=".json,application/json" hidden></div>
+    <p class="note" id="dbnote"></p>
+    <h2>Buy list</h2>
+    <dl id="bom"></dl>
+    <h2>Inventory</h2>
+    <p class="note" style="margin-top:0">What you already have. Subtracted from the
+    build plan's shopping, phase by phase, earliest first.</p>
+    <div id="invlist"></div>
+    <div class="row" style="margin-top:6px"><button id="invclear"
+      title="Set every count back to nothing">Clear inventory</button></div>
+    <h2>Still to buy</h2>
+    <div id="shortlist"></div>
+  </aside>
+  <div id="scrim"></div>
+</div>
+
+<script>
+"use strict";
+var TAU=Math.PI*2, D2R=Math.PI/180, IN=1/12;
+
+/* ============================ SITE (surveyed 21 Nov) ====================== */
+var SX=[5,10,15,20,25,30,35,40,45];
+var SN=[71,84,102,93,82,79,74,82,72];      // north / uphill, slope inches
+var SS=[95,95,84,75,69,70,60,49,17.5];     // south / downhill
+var SD=[56,52,54,53,47,46,24,24,16];       // full-width drop
+var NH=[],SH=[],ANG=[];
+(function(){
+  for(var i=0;i<9;i++){
+    var L=SN[i]+SS[i], D=SD[i], H=Math.sqrt(Math.max(L*L-D*D,1e-9)), k=H/L;
+    NH.push(SN[i]*k*IN); SH.push(SS[i]*k*IN); ANG.push(Math.atan2(D,H));
+  }
+})();
+function lerp(xq,a){
+  if(xq<=SX[0])return a[0];
+  if(xq>=SX[8])return a[8];
+  for(var i=0;i<8;i++) if(SX[i]<=xq&&xq<=SX[i+1]){
+    var t=(xq-SX[i])/(SX[i+1]-SX[i]); return a[i]+(a[i+1]-a[i])*t; }
+  return a[8];
+}
+function nz(x){return lerp(x,NH);}            // +z, uphill / north
+function sz(x){return -lerp(x,SH);}           // -z, downhill / south
+function tanS(x){return Math.tan(lerp(x,ANG));}
+function elev(x,z){return z*tanS(x);}         // Main line is level -> datum
+var X0=5, X1=45;
+var WELL_D=3.0;                                 // S9b - still an assumed 3 ft across
+var OBST=[{x:20,z:0,d:22*IN,n:"oak",k:"tree"},{x:30,z:0,d:2.0,n:"birdbath",k:"bath"},
+          // S9 corrected 22 Nov: well rim sits hard against the north boundary
+          {x:13,z:nz(13)-WELL_D/2,d:WELL_D,n:"well",k:"well"}];
+
+/* ---------------------------------------------------------------------------
+   MEASURED TREES INSIDE THE PLOT
+   The site is full of mature oaks; so far only the one on the Main line (S7)
+   has a position. Add the rest here as they are measured and they become real
+   obstacles: drawn as trunks, and counted by the clearance check and the fit,
+   exactly like the oak.
+
+     x  feet along the Main line from Main A (the same x as a station)
+     z  offset from the Main line, + toward C / north / uphill,
+                                   - toward B / south / downhill
+     d  trunk diameter in FEET - divide inches by 12, or a girth by 37.7
+     n  a label for the plan view
+
+   One line per trunk, comma at the end. Delete the // to switch a line on.
+   The numbers are the only thing to edit; nothing else needs touching.      */
+var SITE_TREES=[
+  // {x:  8.0, z: +2.4, d: 16/12, n:"oak"},
+  // {x: 24.5, z: -3.1, d: 20/12, n:"oak"},
+];
+SITE_TREES.forEach(function(t){
+  OBST.push({x:t.x,z:t.z,d:t.d,n:t.n||"tree",k:"tree",h:t.h||0});
+});
+document.getElementById('sitelab').textContent =
+  '45 ft × 7.3–14.8 ft · surveyed 21 Nov';
+
+/* ============================ TRACK CATALOGUE ============================= */
+var CAT={
+  s12:{k:'s',len:1.0,n:'Straight',s:'12 in'},
+  s24:{k:'s',len:2.0,n:'Straight',s:'24 in'},
+  s60:{k:'s',len:5.0,n:'Flex',s:'5 ft'},
+  c24:{k:'c',r:2.0,deg:30,n:'Curve R24',s:'4 ft dia'},
+  c36:{k:'c',r:3.0,deg:30,n:'Curve R36',s:'6 ft dia'},
+  c48:{k:'c',r:4.0,deg:30,n:'Curve R48',s:'8 ft dia'},
+  c54:{k:'c',r:4.5,deg:30,n:'Curve R54',s:'9 ft dia'},
+  c60:{k:'c',r:5.0,deg:15,n:'Curve R60',s:'10 ft dia'},
+  tl:{k:'t',r:4.5,deg:30,len:2.6,hand:1,n:'Turnout L',s:'R54'},
+  tr:{k:'t',r:4.5,deg:30,len:2.6,hand:-1,n:'Turnout R',s:'R54'}
+};
+function sLen(p){var d=CAT[p.def];return (d.k==='s'&&p.len)?p.len:d.len;}
+function pieceLen(p){var d=CAT[p.def];return d.k==='c'?d.r*d.deg*D2R:sLen(p);}
+function curveEnd(x,y,a,r,deg,hand){
+  var th=deg*D2R,cx=x-hand*r*Math.sin(a),cy=y+hand*r*Math.cos(a);
+  var p0=a-hand*Math.PI/2,p1=p0+hand*th;
+  return {x:cx+r*Math.cos(p1),y:cy+r*Math.sin(p1),a:a+hand*th,cx:cx,cy:cy,p0:p0,p1:p1};
+}
+function exitOf(p){var d=CAT[p.def],L=sLen(p);
+  if(d.k==='c')return curveEnd(p.x,p.y,p.a,d.r,d.deg,p.hand);
+  return {x:p.x+L*Math.cos(p.a),y:p.y+L*Math.sin(p.a),a:p.a};}
+function divergeOf(p){var d=CAT[p.def];return curveEnd(p.x,p.y,p.a,d.r,d.deg,d.hand);}
+function endpoints(p){var d=CAT[p.def],e=exitOf(p);
+  var L=[{k:'in',x:p.x,y:p.y,a:p.a+Math.PI},{k:'out',x:e.x,y:e.y,a:e.a}];
+  if(d.k==='t'){var g=divergeOf(p);L.push({k:'div',x:g.x,y:g.y,a:g.a});}
+  return L;}
+function routePts(p,route){
+  var d=CAT[p.def],o=[],i,n,t,L=sLen(p);
+  if(d.k==='s'||(d.k==='t'&&route!=='div')){
+    for(i=0;i<=2;i++){t=i/2;o.push([p.x+L*t*Math.cos(p.a),p.y+L*t*Math.sin(p.a),p.a]);}
+    return o;}
+  var hand=d.k==='c'?p.hand:d.hand, g=curveEnd(p.x,p.y,p.a,d.r,d.deg,hand);
+  n=Math.max(6,Math.round(d.deg/4));
+  for(i=0;i<=n;i++){t=i/n;var ph=g.p0+(g.p1-g.p0)*t;
+    o.push([g.cx+d.r*Math.cos(ph),g.cy+d.r*Math.sin(ph),p.a+hand*d.deg*D2R*t]);}
+  return o;}
+
+/* ====================== EXACT ROUTE SHAPES, FOR THE CHECKS ================
+   routePts above is for drawing: three points on a straight is plenty to draw
+   a straight. It is NOT enough to check one. The clearance check used to walk
+   those same points, which on a 5 ft flex length is one sample every 2.5 ft,
+   so any obstacle whose keep-out radius was under 1.25 ft could sit entirely
+   between two samples and be reported as clear - with the centreline running
+   straight through it. That is every trunk under 21 in across, which is most
+   of what the tree survey is about to bring back. A 16 in trunk dead on the
+   rail read as 2.3 in CLEAR.
+
+   So the checks work off the exact shape instead: a straight is a segment, a
+   curve or a turnout's diverging route is an arc, and the distance to each is
+   solved rather than sampled. Mirrors geom.py in tools/. */
+var HALF=0.39;                 /* track half-width, outside of rail */
+var EDGE=0.4;                  /* boundary setback the design keeps */
+var MARGIN=1.0;                /* comfort clearance to an obstacle */
+var TOLERANCE=1*IN;            /* below this, a margin is inside survey accuracy */
+var WALL_AT=0.4;               /* cut deeper than this wants a retaining wall */
+var EMBANK_AT=0.45;            /* fill higher than this is embankment */
+var TRESTLE_AT=1.0;            /* fill higher than this goes on trestle */
+var FLEX_LEN=5.0;              /* one length of flex track */
+/* Material rates and the quantity constants, so the app can cost a layout and
+   write its build document with no signal. They are DATA, generated from
+   tools/rates.py by tools/make_rates.py - the same arrangement as the presets
+   below, and for the same reason: a second hand-kept copy of these numbers
+   drifted from the first one last time. tools/test_web.py fails if they part. */
+/* === RATES BEGIN (generated; edit tools/rates.py, not this) === */
+var RATES={
+  FLEX_FT:[12,18],
+  TURNOUT:[180,350],
+  CLAMP:[2,4],
+  PIPE_FT:[1.5,2.5],
+  FABRIC_SQFT:[0.3,0.5],
+  STONE:[60,140],
+  BENCH_LABOUR:[90,260],
+  BENT:[11,22],
+  TRESTLE_SUNDRY:[60,150],
+  POWER:[260,620],
+  YARD_SUNDRY:[40,100],
+  PHASE0:[40,40],
+  WASTE:1.08,BALLAST_W:0.833333,BALLAST_D:0.25,FABRIC_W:2,FEEDER_EVERY:20,
+  BENT_SPACING:3,CU_YD:27
+};
+/* === RATES END === */
+var FEEDER_EVERY=RATES.FEEDER_EVERY;   /* ft of track per feeder drop */
+var BENCH_W=2.5;               /* ft, level strip: track plus shoulder */
+var CHECK_STEP=0.05;           /* sampling step where the limit is piecewise linear */
+
+/* G scale covers a range of ratios, and two were in use here: lap times were
+   worked at 1:22.5 while the yard's car counts assume 1:29. One railway cannot
+   be both - the same 70 ft lap is 72 s at one and 92 s at the other. Open
+   question Q3 (what stock to run) settles it; until then the published figure
+   stands and the readout says which ratio it used, so the assumption travels
+   with the number instead of being buried in a magic constant. */
+var SPEED_SCALE=22.5;          /* ratio behind the published lap times */
+var CAR_SCALE=29;              /* ratio the car-capacity figures assume */
+var SCALE_MPH=15;              /* scale miles per hour */
+var CARLEN=1.45;               /* ft over couplers, a 40 ft boxcar at 1:29 */
+function lapSeconds(ft,scale){return ft/(SCALE_MPH*5280/3600/(scale||SPEED_SCALE));}
+
+function routeShapes(p){
+  var d=CAT[p.def],out=[],L=sLen(p);
+  if(d.k==='c'){
+    var g=curveEnd(p.x,p.y,p.a,d.r,d.deg,p.hand);
+    return [{kind:'arc',cx:g.cx,cy:g.cy,r:d.r,p0:g.p0,p1:g.p1,through:true}];
+  }
+  out.push({kind:'seg',ax:p.x,ay:p.y,
+            bx:p.x+L*Math.cos(p.a),by:p.y+L*Math.sin(p.a),through:true});
+  if(d.k==='t'){
+    var h=divergeOf(p);
+    out.push({kind:'arc',cx:h.cx,cy:h.cy,r:d.r,p0:h.p0,p1:h.p1,through:false});
+  }
+  return out;
+}
+function allShapes(){
+  var out=[];
+  pieces.forEach(function(p){routeShapes(p).forEach(function(s){out.push(s);});});
+  return out;
+}
+function segDist(px,py,ax,ay,bx,by){
+  var vx=bx-ax,vy=by-ay,L2=vx*vx+vy*vy;
+  if(L2<1e-12)return Math.hypot(px-ax,py-ay);
+  var t=((px-ax)*vx+(py-ay)*vy)/L2;
+  t=t<0?0:(t>1?1:t);
+  return Math.hypot(px-(ax+vx*t),py-(ay+vy*t));
+}
+function angleWithin(ph,p0,p1){
+  var lo=Math.min(p0,p1),hi=Math.max(p0,p1),span=hi-lo;
+  if(span>=TAU)return true;
+  return ((ph-lo)%TAU+TAU)%TAU<=span;
+}
+function shapeDist(px,py,s){
+  if(s.kind==='seg')return segDist(px,py,s.ax,s.ay,s.bx,s.by);
+  var dx=px-s.cx,dy=py-s.cy,d=Math.hypot(dx,dy);
+  if(d<1e-12)return s.r;
+  if(angleWithin(Math.atan2(dy,dx),s.p0,s.p1))return Math.abs(d-s.r);
+  return Math.min(
+    Math.hypot(px-(s.cx+s.r*Math.cos(s.p0)),py-(s.cy+s.r*Math.sin(s.p0))),
+    Math.hypot(px-(s.cx+s.r*Math.cos(s.p1)),py-(s.cy+s.r*Math.sin(s.p1))));
+}
+function shapeLen(s){
+  return s.kind==='seg'?Math.hypot(s.bx-s.ax,s.by-s.ay):Math.abs(s.p1-s.p0)*s.r;
+}
+/* Points along a shape, for the boundary and the earthworks - the boundary is
+   piecewise linear between stations, so there sampling is the honest approach.
+   0.05 ft puts the chord error on an R54 curve under a thousandth of an inch. */
+function shapePoints(s,step){
+  var n=Math.max(2,Math.ceil(shapeLen(s)/(step||CHECK_STEP))+1),o=[],i,t;
+  if(s.kind==='seg'){
+    for(i=0;i<n;i++){t=i/(n-1);
+      o.push([s.ax+(s.bx-s.ax)*t,s.ay+(s.by-s.ay)*t]);}
+    return o;
+  }
+  for(i=0;i<n;i++){t=i/(n-1);var ph=s.p0+(s.p1-s.p0)*t;
+    o.push([s.cx+s.r*Math.cos(ph),s.cy+s.r*Math.sin(ph)]);}
+  return o;
+}
+
+/* ============================ MODEL ======================================= */
+var pieces=[],nextId=1,sel=null,activeEnd=null,drag=null,EPS=[],circuit=null;
+var running=false,trainS=0,trackY=0;
+function addPiece(def,x,y,a,hand,len){
+  var p={id:nextId++,def:def,x:x,y:y,a:a,hand:hand===undefined?1:hand,thrown:false};
+  if(len)p.len=len; pieces.push(p); return p;}
+var TOL=0.14,ATOL=6*D2R;
+function angDiff(a,b){var d=(a-b)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;return Math.abs(d);}
+function recompute(){
+  EPS=[];
+  pieces.forEach(function(p){endpoints(p).forEach(function(e){
+    EPS.push({p:p,k:e.k,x:e.x,y:e.y,a:e.a,link:null});});});
+  for(var i=0;i<EPS.length;i++)for(var j=i+1;j<EPS.length;j++){
+    var A=EPS[i],B=EPS[j];
+    if(A.p===B.p||A.link||B.link)continue;
+    if(Math.hypot(A.x-B.x,A.y-B.y)<TOL&&angDiff(A.a,B.a+Math.PI)<ATOL){A.link=B;B.link=A;}}
+  updateUI(); autosave();
+}
+function openEnds(){return EPS.filter(function(e){return !e.link;});}
+/* Walk the connected run of track from one piece's one end, following turnouts
+   as they are set. Returns the path as a list of point-runs, and whether it
+   came back to where it started. */
+function walkFrom(start,fromK){
+  var path=[],seen={},cur=start,guard=0,loop=false,startK=fromK,ids={};
+  while(guard++<2000){
+    var key=cur.id+':'+fromK; if(seen[key]){loop=true;break;} seen[key]=1;
+    ids[cur.id]=1;                 /* which pieces this run is made of */
+    var d=CAT[cur.def],exitK;
+    if(d.k==='t')exitK=fromK==='in'?(cur.thrown?'div':'out'):'in';
+    else exitK=fromK==='in'?'out':'in';
+    var pts=routePts(cur,(d.k==='t'&&(fromK==='div'||exitK==='div'))?'div':'out');
+    path.push(fromK==='in'?pts:pts.slice().reverse());
+    var ep=EPS.filter(function(e){return e.p===cur&&e.k===exitK;})[0];
+    if(!ep||!ep.link)break;
+    cur=ep.link.p; fromK=ep.link.k;
+    if(cur===start&&fromK===startK){loop=true;break;}
+  }
+  return {path:path,loop:loop,ids:ids};
+}
+function packWalk(w){
+  var poly=[],len=0,k;
+  w.path.forEach(function(seg){
+    seg.forEach(function(q,i){if(poly.length&&i===0)return;poly.push(q);});});
+  for(k=1;k<poly.length;k++)
+    len+=Math.hypot(poly[k][0]-poly[k-1][0],poly[k][1]-poly[k-1][1]);
+  if(w.loop&&poly.length)poly.push(poly[0].slice());
+  return {poly:poly,len:len,loop:w.loop,ids:w.ids};
+}
+function buildCircuit(){
+  if(!pieces.length)return null;
+  /* A ring first. Walking from an arbitrary piece is right for a loop and
+     wrong for anything else: it only went forward, so track behind the start
+     piece was left out of both the circuit and the train's run. Three
+     straights in a line with the middle one laid first gave a 10 ft circuit on
+     15 ft of track. Hidden on the presets, which begin on a ring.
+
+     So: look for a ring, and if there isn't one, walk in from each open end
+     and keep the longest run. That covers the point-to-point case without
+     spoiling the common one - a mainline ring with yard stubs hanging off it
+     still reports the ring as the lap. */
+  var i,start=null;
+  for(i=0;i<pieces.length&&!start;i++)if(CAT[pieces[i].def].k!=='t')start=pieces[i];
+  if(!start)start=pieces[0];
+  var ring=walkFrom(start,'in');
+  if(ring.loop)return packWalk(ring);
+
+  var best=packWalk(ring);
+  openEnds().forEach(function(e){
+    if(e.k==='div')return;                 /* a thrown-off stub, not a line end */
+    var w=packWalk(walkFrom(e.p,e.k==='in'?'in':'out'));
+    if(w.loop||w.len>best.len)best=w;
+  });
+  return best;
+}
+
+/* ============================ PRESETS =====================================
+   The presets are DATA, generated from the saved layouts by
+   tools/make_presets.py. They used to be built by a second copy of the
+   geometry here, and it drifted: the "Oval + yard" preset still carried the
+   pre-survey inside-the-loop siding, which runs through the surveyed oak - the
+   app's own checks flagged it - while the designed yard lives in the western
+   strip and is what Phase 6 of the build plan is costed on.
+
+   Data cannot drift. To change a preset, change the layout and re-run
+   tools/make_presets.py; it also checks that the survey below still matches
+   tools/geom.py. */
+/* === PRESETS BEGIN (generated; edit tools/make_presets.py, not this) === */
+/* 2 presets. 'oval' is geom.build_layout at the adopted geometry;
+   'full' is layouts/Oval-pushed-west.json verbatim. Both were checked
+   against the boundary and the obstacles before being written here. */
+var PRESETS={
+oval:{label:"Fitted oval",note:"Nine-foot curves, no turnouts - a complete railway on its own.",pieces:[
+  {d:"s60",x:18.48,y:5.6,a:0,h:1},
+  {d:"s60",x:23.48,y:5.6,a:0,h:1},
+  {d:"s60",x:28.48,y:5.6,a:0,h:1},
+  {d:"s60",x:33.48,y:5.6,a:0,h:1},
+  {d:"s60",x:38.48,y:5.6,a:0,h:1,l:0.84},
+  {d:"c54",x:39.32,y:5.6,a:0,h:-1},
+  {d:"c54",x:41.57,y:4.9971,a:-0.5236,h:-1},
+  {d:"c54",x:43.2171,y:3.35,a:-1.0472,h:-1},
+  {d:"c54",x:43.82,y:1.1,a:-1.5708,h:-1},
+  {d:"c54",x:43.2171,y:-1.15,a:-2.0944,h:-1},
+  {d:"c54",x:41.57,y:-2.7971,a:-2.618,h:-1},
+  {d:"s60",x:39.32,y:-3.4,a:-3.1416,h:1},
+  {d:"s60",x:34.32,y:-3.4,a:-3.1416,h:1},
+  {d:"s60",x:29.32,y:-3.4,a:-3.1416,h:1},
+  {d:"s60",x:24.32,y:-3.4,a:-3.1416,h:1},
+  {d:"s60",x:19.32,y:-3.4,a:-3.1416,h:1,l:0.84},
+  {d:"c54",x:18.48,y:-3.4,a:-3.1416,h:-1},
+  {d:"c54",x:16.23,y:-2.7971,a:-3.6652,h:-1},
+  {d:"c54",x:14.5829,y:-1.15,a:-4.1888,h:-1},
+  {d:"c54",x:13.98,y:1.1,a:-4.7124,h:-1},
+  {d:"c54",x:14.5829,y:3.35,a:-5.236,h:-1},
+  {d:"c54",x:16.23,y:4.9971,a:-5.7596,h:-1}
+]},
+full:{label:"Yard and passing siding",note:"The adopted design. Double-click a turnout to throw it.",pieces:[
+  {d:"s60",x:18.48,y:5.6,a:0,h:1},
+  {d:"s60",x:23.48,y:5.6,a:0,h:1},
+  {d:"s60",x:28.48,y:5.6,a:0,h:1},
+  {d:"s60",x:33.48,y:5.6,a:0,h:1},
+  {d:"s60",x:38.48,y:5.6,a:0,h:1,l:0.84},
+  {d:"c54",x:39.32,y:5.6,a:0,h:-1},
+  {d:"c54",x:41.57,y:4.9971,a:-0.5236,h:-1},
+  {d:"c54",x:43.2171,y:3.35,a:-1.0472,h:-1},
+  {d:"c54",x:43.82,y:1.1,a:-1.5708,h:-1},
+  {d:"c54",x:43.2171,y:-1.15,a:-2.0944,h:-1},
+  {d:"c54",x:41.57,y:-2.7971,a:-2.618,h:-1},
+  {d:"s60",x:39.32,y:-3.4,a:-3.1416,h:1,l:2},
+  {d:"tr",x:37.32,y:-3.4,a:-3.1416,h:1},
+  {d:"s60",x:34.72,y:-3.4,a:-3.1416,h:1},
+  {d:"s60",x:29.72,y:-3.4,a:-3.1416,h:1},
+  {d:"s60",x:24.72,y:-3.4,a:-3.1416,h:1,l:1.64},
+  {d:"tl",x:20.48,y:-3.4,a:0,h:1},
+  {d:"s60",x:20.48,y:-3.4,a:3.1416,h:1,l:2},
+  {d:"tr",x:18.48,y:-3.4,a:3.1416,h:1,t:1},
+  {d:"c54",x:16.23,y:-2.7971,a:2.618,h:-1},
+  {d:"c54",x:14.5829,y:-1.15,a:2.0944,h:-1},
+  {d:"c54",x:13.98,y:1.1,a:1.5708,h:-1},
+  {d:"c54",x:14.5829,y:3.35,a:1.0472,h:-1},
+  {d:"c54",x:16.23,y:4.9971,a:0.5236,h:-1},
+  {d:"c54",x:35.07,y:-2.7971,a:-3.6652,h:1},
+  {d:"s60",x:32.82,y:-2.1942,a:-3.1416,h:1},
+  {d:"s60",x:27.82,y:-2.1942,a:-3.1416,h:1,l:2.84},
+  {d:"c54",x:24.98,y:-2.1942,a:-3.1416,h:1},
+  {d:"tr",x:15.88,y:-3.4,a:3.1416,h:1},
+  {d:"s60",x:13.28,y:-3.4,a:3.1416,h:1},
+  {d:"s60",x:8.28,y:-3.4,a:3.1416,h:1,l:2.78},
+  {d:"c54",x:13.63,y:-2.7971,a:2.618,h:1},
+  {d:"s60",x:11.38,y:-2.1942,a:3.1416,h:1},
+  {d:"s60",x:6.38,y:-2.1942,a:3.1416,h:1,l:0.88}
+]}
+};
+/* === PRESETS END === */
+function loadPreset(key){
+  var P=PRESETS[key];
+  if(!P||!P.pieces||!deserialize(P.pieces)){
+    hint2('That preset could not be loaded — re-run tools/make_presets.py.');
+    return;
+  }
+  nextId=pieces.length+1;
+  recompute();fitAll();
+  /* Describe it from what actually loaded, never from a written-in number. The
+     old hint said "66 ft of mainline" next to a readout saying 70.0. */
+  var t=0;pieces.forEach(function(p){t+=pieceLen(p);});
+  var s=P.label+' — '+t.toFixed(1)+' ft of track';
+  if(circuit&&circuit.loop)
+    s+=', '+circuit.len.toFixed(1)+' ft lap in '+Math.round(lapSeconds(circuit.len))+' s';
+  hint2(s+'. '+P.note);
+}
+
+/* ============================ 2D PLAN VIEW ================================ */
+var c2=document.getElementById('c2d'),g2=c2.getContext('2d');
+var V={s:18,ox:40,oy:200};
+function PX(x){return V.ox+x*V.s;}
+function PY(y){return V.oy-y*V.s;}
+function WX(p){return (p-V.ox)/V.s;}
+function WY(p){return (V.oy-p)/V.s;}
+function fit2(){
+  var r=c2.getBoundingClientRect(); if(r.width<10)return;
+  var pad=26;
+  /* In a pane shorter than 2*pad this went NEGATIVE, and a negative scale makes
+     every arc radius negative too - which throws IndexSizeError out of draw2,
+     out of redraw, and out of whatever click called it. The click's remaining
+     work, including the status line, silently never ran. Clamped to the same
+     range the wheel zoom uses. */
+  V.s=Math.min((r.width-pad*2)/(X1-X0+4),(r.height-pad*2)/20);
+  V.s=Math.max(5,Math.min(90,V.s));
+  V.ox=pad-(X0-2)*V.s; V.oy=Math.max(1,r.height)/2;
+}
+function boundaryPath(g,P,Y){
+  g.beginPath();
+  for(var x=X0;x<=X1+1e-9;x+=0.5)g.lineTo(P(x),Y(nz(x)));
+  for(var x2=X1;x2>=X0-1e-9;x2-=0.5)g.lineTo(P(x2),Y(sz(x2)));
+  g.closePath();
+}
+function draw2(){
+  var r=c2.getBoundingClientRect(),W=r.width,H=r.height;
+  g2.clearRect(0,0,W,H);
+  g2.fillStyle='#222b27';g2.fillRect(0,0,W,H);
+  // contour shading
+  g2.save();boundaryPath(g2,PX,PY);g2.clip();
+  for(var h=-4;h<=4;h+=0.5){
+    g2.beginPath();
+    for(var x=X0;x<=X1;x+=0.5){var z=h/Math.max(tanS(x),1e-6);g2.lineTo(PX(x),PY(z));}
+    g2.strokeStyle='rgba(140,180,150,.13)';g2.lineWidth=1;g2.stroke();
+  }
+  g2.strokeStyle='rgba(255,255,255,.05)';
+  for(var gx=X0;gx<=X1;gx++){g2.beginPath();g2.moveTo(PX(gx),PY(-9));g2.lineTo(PX(gx),PY(9));g2.stroke();}
+  for(var gy=-9;gy<=9;gy++){g2.beginPath();g2.moveTo(PX(X0),PY(gy));g2.lineTo(PX(X1),PY(gy));g2.stroke();}
+  g2.restore();
+  boundaryPath(g2,PX,PY);
+  g2.fillStyle='rgba(120,150,110,.10)';g2.fill();
+  g2.strokeStyle='#e0b020';g2.lineWidth=2;g2.stroke();
+  // dry-laid fieldstone, same stones the 3D view builds the walls from
+  if(SCENERY&&SCN)SCN.stones.forEach(function(st){
+    if(st.y)return;                                   // second course, hidden in plan
+    g2.beginPath();g2.arc(PX(st.x),PY(st.z),Math.max(1.5,st.r*V.s),0,TAU);
+    g2.fillStyle=st.m?'rgba(120,134,104,.75)':'rgba(158,158,150,.72)';g2.fill();
+  });
+  // main line
+  g2.beginPath();g2.moveTo(PX(0),PY(0));g2.lineTo(PX(X1+1),PY(0));
+  g2.strokeStyle='rgba(224,80,60,.75)';g2.lineWidth=1.5;g2.setLineDash([5,4]);g2.stroke();g2.setLineDash([]);
+  g2.fillStyle='rgba(224,80,60,.9)';g2.font='10px '+'monospace';
+  g2.fillText('MAIN A',PX(0.4),PY(0)-5); g2.fillText('MAIN D',PX(X1-3.2),PY(0)-5);
+  // station ticks
+  g2.fillStyle='rgba(255,255,255,.35)';
+  for(var i=0;i<9;i++){g2.fillRect(PX(SX[i])-0.5,PY(0)-4,1,8);
+    g2.fillText(String(SX[i]),PX(SX[i])-6,PY(0)+16);}
+  // obstacles
+  OBST.forEach(function(o){
+    g2.beginPath();g2.arc(PX(o.x),PY(o.z),Math.max(o.d/2*V.s,3),0,TAU);
+    g2.fillStyle='rgba(150,130,105,.85)';g2.fill();
+    g2.beginPath();g2.arc(PX(o.x),PY(o.z),(o.d/2+1)*V.s,0,TAU);
+    g2.strokeStyle='rgba(224,160,90,.35)';g2.setLineDash([3,3]);g2.lineWidth=1;g2.stroke();g2.setLineDash([]);
+    g2.fillStyle='rgba(200,190,175,.75)';g2.fillText(o.n,PX(o.x)+o.d/2*V.s+5,PY(o.z)+3);
+  });
+  pieces.forEach(function(p){drawPiece2(p,false);});
+  if(drag&&drag.ghost)drawPiece2(drag.ghost,true);
+  openEnds().forEach(function(e){
+    var on=activeEnd&&activeEnd.p===e.p&&activeEnd.k===e.k;
+    g2.beginPath();g2.arc(PX(e.x),PY(e.y),on?6:4,0,TAU);
+    g2.fillStyle=on?'#6aa3f0':'rgba(210,168,92,.85)';g2.fill();
+  });
+  if(circuit)drawTrain2();
+  drawCompass(g2,W,H,0,true);
+}
+function strokePts(g,pts,P,Y,w,col){
+  if(pts.length<2)return;
+  g.beginPath();g.moveTo(P(pts[0][0]),Y(pts[0][1]));
+  for(var i=1;i<pts.length;i++)g.lineTo(P(pts[i][0]),Y(pts[i][1]));
+  g.lineWidth=w;g.strokeStyle=col;g.lineCap='round';g.lineJoin='round';g.stroke();
+}
+function drawPiece2(p,ghost){
+  var d=CAT[p.def],routes=[routePts(p,'out')];
+  if(d.k==='t')routes.push(routePts(p,'div'));
+  routes.forEach(function(pts,ri){
+    var dim=d.k==='t'&&((ri===1)!==!!p.thrown);
+    strokePts(g2,pts,PX,PY,Math.max(3,0.78*V.s),ghost?'rgba(150,150,150,.3)':
+      (p._bad?'rgba(200,70,55,.35)':'rgba(120,118,110,.55)'));
+    [-0.0738,0.0738].forEach(function(off){
+      var rp=pts.map(function(q){return [q[0]-Math.sin(q[2])*off,q[1]+Math.cos(q[2])*off,q[2]];});
+      strokePts(g2,rp,PX,PY,Math.max(1,0.07*V.s),ghost?'rgba(170,150,110,.5)':(dim?'rgba(150,130,95,.5)':'#d2a85c'));
+    });
+  });
+  if(p===sel)strokePts(g2,routes[0],PX,PY,Math.max(3,0.95*V.s),'rgba(106,163,240,.3)');
+}
+var CARS=[{l:2.0,c:'#8c3228'},{l:1.8,c:'#6a5436'},{l:1.8,c:'#44606f'},{l:1.8,c:'#4f6243'}];
+function sampleCircuit(){
+  if(!circuit||circuit.poly.length<2)return null;
+  var cum=[0],i;
+  for(i=1;i<circuit.poly.length;i++)cum.push(cum[i-1]+Math.hypot(
+    circuit.poly[i][0]-circuit.poly[i-1][0],circuit.poly[i][1]-circuit.poly[i-1][1]));
+  var total=cum[cum.length-1];
+  if(total<2)return null;
+  return function(s){
+    if(circuit.loop)s=((s%total)+total)%total; else s=Math.max(0,Math.min(total,s));
+    var lo=0,hi=cum.length-1;
+    while(lo<hi-1){var m=(lo+hi)>>1;if(cum[m]<=s)lo=m;else hi=m;}
+    var seg=cum[hi]-cum[lo]||1,t=(s-cum[lo])/seg,a=circuit.poly[lo],b=circuit.poly[hi];
+    return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,Math.atan2(b[1]-a[1],b[0]-a[0])];
+  };
+}
+function drawTrain2(){
+  var at=sampleCircuit(); if(!at)return;
+  var off=0;
+  CARS.forEach(function(car){
+    var c=at(trainS-off-car.l/2);
+    g2.save();g2.translate(PX(c[0]),PY(c[1]));g2.rotate(-c[2]);
+    g2.fillStyle=car.c;
+    var w=car.l*V.s,h=0.52*V.s;
+    g2.fillRect(-w/2,-h/2,w,h);
+    g2.strokeStyle='rgba(0,0,0,.4)';g2.lineWidth=1;g2.strokeRect(-w/2,-h/2,w,h);
+    g2.restore(); off+=car.l+0.18;
+  });
+}
+
+/* ====================== COMPASS ROSE (requirement A3) =====================
+   Orientation is fixed and known - A west, B south, C north, D east, the hill
+   facing south - but it has already cost us a round trip in prose, so both
+   views carry it on screen. The rose shows the cardinal point outside and the
+   site letter we actually talk in inside, so "the C side" and "north" are the
+   same thing at a glance, with the fall of the hill spelled out underneath.
+
+   In the plan, north is simply up. In 3D the rose turns with the camera, and
+   the angle is taken from the view basis rather than from the azimuth, so it
+   stays honest whatever the camera is doing - including the Top preset. The
+   letters are always drawn upright; only the needle turns. */
+var ROSE=[['N','C',-Math.PI/2],['E','D',0],['S','B',Math.PI/2],['W','A',Math.PI]];
+function drawCompass(g,W,H,ang,dark){
+  if(!(W>120&&H>120))return;                 // too small to be worth the room
+  var R=30, cx=W-R-18, cy=H-R-58, i;         // clear of the hint bar
+  g.save();
+  g.beginPath();g.arc(cx,cy,R,0,TAU);
+  g.fillStyle=dark?'rgba(18,22,20,.62)':'rgba(18,22,20,.52)';g.fill();
+  g.strokeStyle='rgba(143,160,150,.34)';g.lineWidth=1;g.stroke();
+  // needle: north filled, south hollow
+  g.translate(cx,cy);g.rotate(ang);
+  g.beginPath();g.moveTo(0,-R*0.46);g.lineTo(R*0.13,0);g.lineTo(-R*0.13,0);
+  g.closePath();g.fillStyle='#d2a85c';g.fill();
+  g.beginPath();g.moveTo(0,R*0.46);g.lineTo(R*0.13,0);g.lineTo(-R*0.13,0);
+  g.closePath();g.fillStyle='rgba(143,160,150,.45)';g.fill();
+  g.restore();
+  // labels, upright whatever the needle is doing
+  g.save();g.translate(cx,cy);g.textAlign='center';g.textBaseline='middle';
+  for(i=0;i<ROSE.length;i++){
+    var a=ROSE[i][2]+ang, isN=ROSE[i][0]==='N';
+    g.font=(isN?'bold ':'')+'10px '+'monospace';
+    g.fillStyle=isN?'#d2a85c':'rgba(205,214,205,.72)';
+    g.fillText(ROSE[i][0],Math.cos(a)*R*0.84,Math.sin(a)*R*0.84);
+    g.font='9px monospace';
+    g.fillStyle='rgba(143,160,150,.85)';
+    g.fillText(ROSE[i][1],Math.cos(a)*R*0.60,Math.sin(a)*R*0.60);
+  }
+  g.restore();
+  g.save();
+  g.font='9px monospace';g.textAlign='center';g.textBaseline='top';
+  g.fillStyle='rgba(143,160,150,.8)';
+  g.fillText('C uphill',cx,cy+R+4);
+  if(H>200)g.fillText('B downhill',cx,cy+R+15);
+  g.restore();
+}
+/* Screen bearing of world north (+z), straight off the view basis. */
+function northAngle3(){
+  if(!VM)return 0;
+  /* In the panorama the up vector is dead vertical, so the perspective form
+     below degenerates - north is simply its azimuth off the view centre. */
+  if(PANO)return Math.atan2(VM.r[2],VM.f[2]);
+  var nx=VM.r[2], ny=-VM.u[2], m=Math.hypot(nx,ny);
+  if(m<1e-4)return 0;                        // north is down the view axis
+  return Math.atan2(nx/m,-ny/m);
+}
+
+/* ============================ 3D VIEW ===================================== */
+var c3=document.getElementById('c3d'),g3=c3.getContext('2d');
+/* ph is the angle down from vertical: PH_MIN looks straight down at the plot,
+   PH_MAX is trackside eye level. The orbit distance is NOT stored - it is
+   refitted to the site every frame and only scaled by the user's zoom. A fixed
+   radius was the real problem with upright views: a flat 40 x 14 ft garden seen
+   from low down foreshortens to a sliver, so tilting up used to shrink the
+   railway to a chip floating in the sky and the view was only usable looking
+   straight down. */
+var C3={th:-0.85,ph:1.02,zoom:1,dist:62,tx:25,ty:0,tz:0};
+var PH_MIN=0.16,PH_MAX=1.46;
+/* ---------------------------------------------------------------------------
+   PANORAMA
+   A 45 ft railway seen from inside the garden will not go into a normal lens:
+   from the ten or twelve feet you can actually stand back on this slope, a
+   rectilinear view either crops the ends off or pushes the camera so far out
+   that the railway is a line. The site photograph that shows the whole thing
+   is a stitched panorama, so this view is built the same way - a cylindrical
+   projection about a vertical axis, 140 degrees wide. Verticals stay vertical
+   (the trunks in that photograph are dead upright, which is the giveaway),
+   straight rails bow, and the whole run fits with the train crossing it.    */
+var PANO=false, PANO_FOV=140*D2R, PPR=1, PANO_V=0;
+var EYE_H=5.4;                                   // standing eye height, feet
+function basis3(){
+  var ox=Math.sin(C3.ph)*Math.sin(C3.th),oy=Math.cos(C3.ph),oz=Math.sin(C3.ph)*Math.cos(C3.th);
+  var fx=-ox,fy=-oy,fz=-oz;                      // unit, eye -> target
+  var rx=fz,ry=0,rz=-fx;                         // cross((0,1,0),f) - camera right
+  var rl=Math.hypot(rx,ry,rz)||1;rx/=rl;ry/=rl;rz/=rl;
+  /* up = f x r. It was r x f, which points DOWN: every frame came out
+     mirrored top to bottom. Nothing was tall enough to make that obvious
+     until the trees went in. */
+  var ux=fy*rz-fz*ry,uy=fz*rx-fx*rz,uz=fx*ry-fy*rx;
+  return {o:[ox,oy,oz],f:[fx,fy,fz],r:[rx,ry,rz],u:[ux,uy,uz]};
+}
+/* Nearest distance that still holds the whole plot inside the viewport at the
+   current tilt - the eight corners of the site box, solved for screen fit. */
+function fitDist(B,T){
+  var zs=[sz(X0),sz(X1),nz(X0),nz(X1)];
+  var z0=Math.min.apply(null,zs),z1=Math.max.apply(null,zs);
+  var mX=0.45*VW,mY=0.45*VH,d=9;
+  for(var i=0;i<8;i++){
+    var ax=((i&1)?X1:X0)-T[0],
+        ay=((i&4)?2.6:-1.8)-T[1],
+        az=((i&2)?z1:z0)-T[2];
+    var a=ax*B.r[0]+ay*B.r[1]+az*B.r[2],
+        b=ax*B.u[0]+ay*B.u[1]+az*B.u[2],
+        c=ax*B.f[0]+ay*B.f[1]+az*B.f[2];
+    d=Math.max(d,FOC*Math.abs(a)/mX-c,FOC*Math.abs(b)/mY-c);
+  }
+  return d;
+}
+/* How far the tilt has come down past three-quarter view, 0 to 1. */
+function lowness(){return Math.max(0,Math.min(1,(C3.ph-0.95)/(PH_MAX-0.95)));}
+function view3(){
+  if(PANO){
+    /* Stand on the hillside, not in the air: the eye position is a point on
+       the ground plus EYE_H. The axis is held truly vertical and the aim is
+       a vertical slide of the image, so nothing leans. */
+    var Rp=Math.max(6,Math.min(22,13*C3.zoom));
+    var ex=C3.tx+Math.sin(C3.th)*Rp, ez=C3.tz+Math.cos(C3.th)*Rp;
+    var fx2=-Math.sin(C3.th), fz2=-Math.cos(C3.th);
+    PANO_V=PPR*Math.tan(Math.max(-0.60,Math.min(0.40,(C3.ph-1.20)*0.50)));
+    return {e:[ex,elev(ex,ez)+EYE_H,ez],f:[fx2,0,fz2],u:[0,1,0],r:[fz2,0,-fx2]};
+  }
+  var B=basis3(),t=lowness();
+  /* Holding the whole 45 ft plot in frame is right from above, but from down
+     at eye level it just parks the camera 60 ft away and the railway becomes a
+     line on the horizon. Coming down, close in and lift the aim to standing
+     height: the near half of the layout fills the frame and the far end runs
+     off the edges, which is what you actually see standing in the garden. */
+  var T=[C3.tx,C3.ty+1.5*t,C3.tz];
+  C3.dist=Math.max(7,Math.min(260,fitDist(B,T)*(1-0.64*t)*C3.zoom));
+  return {e:[T[0]+B.o[0]*C3.dist,T[1]+B.o[1]*C3.dist,T[2]+B.o[2]*C3.dist],
+          f:B.f,r:B.r,u:B.u};
+}
+var VM=null,VW=0,VH=0,FOC=1;
+function proj(p){
+  var dx=p[0]-VM.e[0],dy=p[1]-VM.e[1],dz=p[2]-VM.e[2];
+  var vz=dx*VM.f[0]+dy*VM.f[1]+dz*VM.f[2];
+  var vx=dx*VM.r[0]+dy*VM.r[1]+dz*VM.r[2];
+  if(PANO){
+    var rad=Math.hypot(vx,vz);
+    if(rad<0.7)return null;
+    var az=Math.atan2(vx,vz);
+    /* a margin past the frame edge, so a quad with one corner just outside
+       is still drawn and clipped by the canvas rather than vanishing */
+    if(az>PANO_FOV*0.5+0.5||az<-PANO_FOV*0.5-0.5)return null;
+    return [VW/2+az*PPR, VH/2-PPR*dy/rad+PANO_V, rad];
+  }
+  if(vz<0.4)return null;
+  var vy=dx*VM.u[0]+dy*VM.u[1]+dz*VM.u[2];
+  return [VW/2+FOC*vx/vz, VH/2-FOC*vy/vz, vz];
+}
+/* Overcast November light, as in the site photographs: high ambient, soft
+   key, a cool sky term on upward faces and a warm duff bounce underneath.
+   Nothing outdoors on an overcast day reads as black. */
+var LIGHT=[-0.42,0.82,0.39];
+function cl(v){return v<0?0:(v>255?255:v|0);}
+function shade(nrm,base){
+  var l=Math.max(0,nrm[0]*LIGHT[0]+nrm[1]*LIGHT[1]+nrm[2]*LIGHT[2]);
+  if(!SCENERY){var k0=0.42+0.58*l;return [base[0]*k0,base[1]*k0,base[2]*k0];}
+  var up=0.5+0.5*nrm[1], k=0.56+0.40*l;
+  return [base[0]*k+9*up+7*(1-up), base[1]*k+13*up+4*(1-up),
+          base[2]*k+17*up+2*(1-up)];
+}
+function quadNormal(a,b,c){
+  var ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2];
+  var vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+  var nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz2=ux*vy-uy*vx;
+  var l=Math.hypot(nx,ny,nz2)||1;return [nx/l,ny/l,nz2/l];
+}
+function fit3(){
+  C3.tx=(X0+X1)/2; C3.ty=0; C3.tz=0; C3.zoom=1;
+  if(PANO){C3.th=-0.30;C3.ph=0.86;C3.zoom=1.25;} else {C3.th=-0.85;C3.ph=1.02;}
+  markTilt();
+}
+/* Carve the bench into the terrain mesh so cut and fill are visible, not just implied.
+   Rebuilt whenever the layout changes, never per frame. */
+/* SCENERY is declared with SCN and APRON further down, where the scenery
+   system starts. It was declared twice, 72 lines apart. */
+var TERR=null,TRK_SEGS=[];
+function buildTerrain(){
+  var NXc=SCENERY?72:46,NZc=SCENERY?20:13,segs=[];
+  pieces.forEach(function(p){
+    var d=CAT[p.def],rs=[routePts(p,'out')];
+    if(d.k==='t')rs.push(routePts(p,'div'));
+    rs.forEach(function(ps){for(var i=0;i<ps.length;i++)segs.push(ps[i]);});
+  });
+  var grid=[];
+  for(var xi=0;xi<=NXc;xi++){
+    var x=X0+(X1-X0)*xi/NXc,row=[];
+    for(var zi=0;zi<=NZc;zi++){
+      var z=sz(x)+(nz(x)-sz(x))*(zi/NZc), y=elev(x,z), dmin=1e9;
+      for(var k=0;k<segs.length;k++){
+        var dd=Math.abs(segs[k][0]-x)+Math.abs(segs[k][1]-z);   // cheap, good enough
+        if(dd<dmin)dmin=dd;
+      }
+      var bench=false;
+      if(dmin<1.5){y=trackY-0.09;bench=true;}
+      else if(dmin<2.8){var t=(dmin-1.5)/1.3;y=(trackY-0.09)*(1-t)+y*t;bench=true;}
+      row.push([x,y,z,bench]);
+    }
+    grid.push(row);
+  }
+  TERR=grid; TRK_SEGS=segs; buildScenery();
+}
+/* Ground height and bench flag off the carved mesh, so scenery sits on the
+   cut and fill rather than on the original hillside. Nearest cell is plenty
+   at this grid spacing. */
+function terrAt(x,z){
+  if(!TERR)return {y:elev(x,z),bench:false};
+  var NX=TERR.length-1,xi=Math.round((x-X0)/((X1-X0)||1)*NX);
+  xi=xi<0?0:(xi>NX?NX:xi);
+  var row=TERR[xi],NZ=row.length-1,z0=row[0][2],z1=row[NZ][2];
+  var zi=Math.round((z-z0)/((z1-z0)||1)*NZ);
+  zi=zi<0?0:(zi>NZ?NZ:zi);
+  return {y:row[zi][1],bench:!!row[zi][3]};
+}
+/* Height to stand a prop on: the carved mesh inside the surveyed edges, the
+   bare hillside outside them. terrAt clamps to the edge cell, which would
+   have floated the terrace wall and the far trunks off the ground. */
+function groundY(x,z){
+  if(x<X0||x>X1||z>nz(Math.max(X0,Math.min(X1,x)))||z<sz(Math.max(X0,Math.min(X1,x))))
+    return elev(x,z);
+  return terrAt(x,z).y;
+}
+/* Terrain colour for one mesh cell. The carved bench reads as screeded
+   gravel, everything else as the oak duff in the site photographs, lightening
+   toward the open south edge. The hash just breaks up the mesh so the hillside
+   looks like ground instead of flat shading. */
+function groundCol(x,z,benched,xi,zi){
+  if(!SCENERY)return plainCol(x,z,benched,xi,zi);
+  /* Leaf litter everywhere, drifted and darker against the walls, green
+     where the periwinkle has taken, bare graded soil on the bench. */
+  var fine=vn(x*0.95,z*0.95), med=vn(x*0.42+11,z*0.42-7), broad=vn(x*0.22-5,z*0.22+3);
+  if(benched)return mix(mix(mix(DUFF,BALLAST,0.3+0.5*fine),LITTER_DK,0.18*med),
+                        SHADE_C,0.22*shadowAt(x,z));
+  var lit=mix(LITTER_DK,LITTER_LT,0.22+0.78*(fine*0.6+med*0.4));
+  lit=mix(lit,RUSSET,0.34*vn(x*1.4+2,z*1.4-3));
+  if(broad>0.58)lit=mix(lit,VINCA,Math.min(0.62,(broad-0.58)*2.6));
+  var wall=Math.min(nz(x)-z,z-sz(x));
+  if(wall<0)wall=0;                       // outside the walls - do not extrapolate
+  if(wall<1.2)lit=mix(lit,LITTER_DK,0.40*(1-wall/1.2));
+  return mix(lit,SHADE_C,0.26*shadowAt(x,z));
+}
+function plainCol(x,z,benched,xi,zi){
+  var h=((xi*73856093)^(zi*19349663))>>>0, n=((h%101)/101-0.5)*2;   // -1 .. 1
+  if(benched)return [150+n*8,147+n*8,139+n*9];
+  var span=nz(x)-sz(x), open=span>0?(nz(x)-z)/span:0.5;
+  open=open<0?0:(open>1?1:open);
+  return [92+n*10+22*open, 80+n*9+18*open, 58+n*7+12*open];
+}
+/* ==================== SCENERY, READ OFF THE SITE PHOTOS ===================
+   Mid-November: deep oak leaf litter over the whole slope, dry-laid
+   fieldstone walls on both boundaries, bare grey trunks, dried lance-leaf
+   understory through the middle, evergreen groundcover in patches, moss and
+   lichen on the stone.
+   APPEARANCE ONLY. Nothing below feeds the fit, the clearance check or the
+   earthworks. The only solids the design knows about are the three surveyed
+   ones in OBST. Toggle it off for the plain study view. */
+var SCENERY=true, SCN=null, APRON=4.5, GROUND_OUT=17;
+function RNG(seed){var s=(seed>>>0)||1;
+  return function(){s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
+function hsh(i,j){var n=Math.sin(i*12.9898+j*78.233)*43758.5453;return n-Math.floor(n);}
+function vn(x,z){                                     // smooth value noise
+  var xi=Math.floor(x),zi=Math.floor(z),fx=x-xi,fz=z-zi;
+  var u=fx*fx*(3-2*fx),v=fz*fz*(3-2*fz);
+  var a=hsh(xi,zi),b=hsh(xi+1,zi),c=hsh(xi,zi+1),d=hsh(xi+1,zi+1);
+  return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
+}
+function mix(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
+/* Sampled off the three site photographs, not invented: the litter is rust and
+   orange rather than the beige it was, the bark is a dark grey-brown, and the
+   fieldstone runs from grey granite to a warm tan. */
+var LITTER_DK=[84,62,44], LITTER_LT=[190,144,96], RUSSET=[162,98,54],
+    DUFF=[104,84,62],  VINCA=[44,74,48],  BALLAST=[138,130,116],
+    STONE=[150,146,136], STONE_W=[158,140,120], MOSS=[92,106,72],
+    LICHEN=[182,182,170], BARK=[112,102,92], BARK_PALE=[146,140,132],
+    DRY=[164,150,100], FOG=[183,188,186], SHADE_C=[58,46,38];
+/* ---------------------------------------------------------------------------
+   CAST SHADOWS
+   The panorama is mostly shadow: a low late sun in the west throws the trunks
+   right across the slope in long parallel bars, and that striping is most of
+   what makes the ground read as ground. Each trunk casts one soft bar running
+   down-sun, widening and fading along its length. Precomputed into SHADOW at
+   build time; the ground, the litter and the stones all sample it.           */
+var SUN=[0.74,-0.67], SHADOW=[];          // unit, the way shadows point (E and downhill)
+function shadeBars(trees){
+  SHADOW=trees.map(function(t){
+    return {x:t.x,z:t.z,r:t.r,L:Math.min(3.0+t.h*1.25,30)};
+  });
+}
+/* 0 = full sun, 1 = deepest part of a bar. */
+function shadowAt(x,z){
+  var s=0,i;
+  for(i=0;i<SHADOW.length;i++){
+    var b=SHADOW[i], dx=x-b.x, dz=z-b.z;
+    var t=dx*SUN[0]+dz*SUN[1];                       // along the bar
+    if(t<-b.r||t>b.L)continue;
+    var o=Math.abs(-dx*SUN[1]+dz*SUN[0]);            // across it
+    var w=b.r*(1.7+3.2*Math.max(0,t)/b.L);           // penumbra opens with range
+    if(o>w)continue;
+    var k=(1-o/w)*(1-Math.max(0,t)/b.L);
+    if(k>s)s=k;
+  }
+  return s;
+}
+function trackD(x,z){var d=1e9,k;
+  for(k=0;k<TRK_SEGS.length;k++){
+    var dd=Math.abs(TRK_SEGS[k][0]-x)+Math.abs(TRK_SEGS[k][1]-z); if(dd<d)d=dd;}
+  return d;}
+/* One run of dry-laid fieldstone. zAt(x) is the line the wall follows and sgn
+   which way the hill rises, so each course steps back into the bank. Stones
+   are laid long-axis along the run, overlapping, and the course above breaks
+   the joints below: that is how the walls in the photographs are built, and
+   the old single line of separate drums was the thing that read least like
+   the site. */
+function wallRun(S,R,zAt,sgn,courses,scale,seed){
+  var x=X0-1.4, k=0;
+  while(x<X1+1.4){
+    var rx=(0.33+R()*0.27)*scale, rz=(0.25+R()*0.15)*scale, ry=(0.19+R()*0.13)*scale;
+    var z0=zAt(x), base=0, c;
+    for(c=0;c<courses;c++){
+      if(c&&R()>(c===1?0.84:0.42))break;
+      var f=1-0.11*c;
+      S.stones.push({x:x+(c?(R()-0.5)*rx:0), z:z0-sgn*(0.05+0.18*c)*scale,
+                     y:base, rx:rx*f, rz:rz*f, ry:ry*f, a:(R()-0.5)*0.55,
+                     m:R()<0.26+0.14*c, l:R()<0.26, w:R()<0.32, s:seed+k*7+c});
+      base+=ry*f*1.50;
+    }
+    x+=rx*(1.58+R()*0.50); k++;
+  }
+}
+function buildScenery(){
+  if(!SCENERY){SCN=null;SHADOW=[];return;}
+  var R=RNG(20261115),
+      S={stones:[],trees:[],tufts:[],flecks:[],patches:[],logs:[]}, i, x, z;
+  /* The two surveyed boundary walls, and - outside the plot, appearance only -
+     the upper terrace above the north wall and the line of big rounded
+     cobbles edging the slope below the south wall. Both are in the panorama;
+     neither constrains anything. */
+  wallRun(S,R,function(x){return nz(x)-0.10;}, 1,3,1.00,0);
+  wallRun(S,R,function(x){return sz(x)+0.10;},-1,3,1.00,300);
+  wallRun(S,R,function(x){return nz(x)+APRON*0.62;}, 1,1,0.98,600);
+  wallRun(S,R,function(x){return sz(x)-APRON*0.78;},-1,1,1.35,900);
+  /* Bare trunks. The photographs are full of mature oaks, but only the one
+     on the Main line was surveyed, so every trunk below is kept OUTSIDE the
+     boundary, where it frames the site and constrains nothing. The far band
+     is the woods behind - it is what gives the low views a horizon instead
+     of a cliff edge. */
+  [1,7,13,19,26,33,40,46].forEach(function(tx){
+    [1,-1].forEach(function(sgn){
+      if(R()<0.42)return;
+      var cx=Math.max(X0,Math.min(X1,tx)), f=sgn>0?nz:sz;
+      S.trees.push({x:tx+(R()-0.5)*2.0, z:f(cx)+sgn*(APRON*0.55+R()*APRON*0.5),
+                    r:0.26+R()*0.24, h:24+R()*16, lean:(R()-0.5)*0.05, a:R()*TAU,
+                    b:R(), far:false});
+    });
+  });
+  for(i=0;i<15;i++){
+    var sgn2=R()<0.5?1:-1, fx=X0-14+R()*(X1-X0+28);
+    var cx2=Math.max(X0,Math.min(X1,fx)), f2=sgn2>0?nz:sz;
+    S.trees.push({x:fx, z:f2(cx2)+sgn2*(APRON+1.6+R()*(GROUND_OUT-APRON-2.4)),
+                  r:0.22+R()*0.26, h:26+R()*18, lean:(R()-0.5)*0.06, a:R()*TAU,
+                  b:R(), far:true});
+  }
+  /* The cut rounds stacked on the wall at the east end - panorama, right. */
+  for(i=0;i<12;i++){
+    var row=(i/5)|0, n0=i-row*5;
+    S.logs.push({x:40.6+(row&1?0.30:0)+n0*0.62, z:nz(40.6)+1.5,
+                 y:row*0.58, r:0.27+0.05*hsh(i,4), L:1.5, t:hsh(i,9)});
+  }
+  /* Every trunk the ground can see casts a bar; the surveyed oak included. */
+  shadeBars(S.trees.filter(function(t){return !t.far&&t.r>0.15;})
+    .concat(OBST.filter(function(o){return (o.k||'')==='tree';})
+      .map(function(o){return {x:o.x,z:o.z,r:o.d/2,h:o.h||20};})));
+  /* The thin understory stems that fill the middle of the View D photograph.
+     Outside the boundary, like every other trunk here. */
+  for(i=0;i<22;i++){
+    var sg3=R()<0.5?1:-1, sx3=X0-4+R()*(X1-X0+8);
+    var cx3=Math.max(X0,Math.min(X1,sx3)), f3=sg3>0?nz:sz;
+    S.trees.push({x:sx3, z:f3(cx3)+sg3*(1.2+R()*R()*(GROUND_OUT-3)),
+                  r:0.05+R()*0.055, h:5+R()*7, lean:(R()-0.5)*0.22, a:R()*TAU,
+                  b:0.3+R()*0.7, far:false});
+  }
+  /* understory, groundcover and loose leaf, kept clear of the graded bench */
+  for(i=0;i<1000;i++){
+    x=X0+R()*(X1-X0);
+    var n=nz(x)-0.25, sN=sz(x)+0.25;
+    z=sN+R()*(n-sN);
+    var ta=terrAt(x,z);
+    if(ta.bench||trackD(x,z)<1.9)continue;
+    var broad=vn(x*0.22-5,z*0.22+3), dense=vn(x*0.6+2,z*0.6+8), roll=R();
+    var sh=shadowAt(x,z);
+    if(broad>0.60&&roll<0.55)
+      S.patches.push({x:x,z:z,y:ta.y,r:0.28+R()*0.42,a:R()*TAU,t:R(),sh:sh});
+    else if(roll<0.20&&dense>0.46)
+      S.tufts.push({x:x,z:z,y:ta.y,h:0.40+R()*0.70,a:R()*TAU,n:2+((R()*2)|0),
+                    dry:R(),sh:sh});
+    else
+      S.flecks.push({x:x,z:z,y:ta.y,r:0.13+R()*0.16,a:R()*TAU,t:R(),sh:sh});
+  }
+  /* The slope does not stop at the survey pegs, and from the panorama camera
+     the band outside the south wall is the whole foreground - bare graded
+     colour there read as mud. Same litter, same scatter, no survey meaning. */
+  for(i=0;i<430;i++){
+    x=X0-7+R()*(X1-X0+14);
+    var cxo=Math.max(X0,Math.min(X1,x)), sgo=R()<0.5?1:-1;
+    var zo=(sgo>0?nz(cxo):sz(cxo))+sgo*(0.5+R()*R()*(GROUND_OUT-2));
+    var yo=elev(x,zo), sho=shadowAt(x,zo), rr=R();
+    if(rr<0.055)
+      S.stones.push({x:x,z:zo,y:0,rx:0.26+R()*0.3,rz:0.22+R()*0.22,ry:0.16+R()*0.2,
+                     a:R()*TAU,m:R()<0.4,l:R()<0.3,w:R()<0.3,s:1700+i});
+    else if(rr<0.16)
+      S.tufts.push({x:x,z:zo,y:yo,h:0.4+R()*0.8,a:R()*TAU,n:2+((R()*2)|0),
+                    dry:R(),sh:sho});
+    else if(rr<0.28)
+      S.patches.push({x:x,z:zo,y:yo,r:0.30+R()*0.50,a:R()*TAU,t:R(),sh:sho});
+    else
+      S.flecks.push({x:x,z:zo,y:yo,r:0.14+R()*0.20,a:R()*TAU,t:R(),sh:sho});
+  }
+  SCN=S;
+}
+/* ---- small solids of revolution, used by the stones, trunks and props --- */
+function ringW(push,x,y,z,rb,rt,h,col,n,jit,seed){
+  var i,A=[],B=[];
+  for(i=0;i<n;i++){
+    var a=i/n*TAU, w=1+(jit?jit*(hsh((seed||0)*3+i,5)-0.5):0);
+    A.push([x+rb*w*Math.cos(a),y,z+rb*w*Math.sin(a)]);
+    B.push([x+rt*w*Math.cos(a),y+h,z+rt*w*Math.sin(a)]);
+  }
+  for(i=0;i<n;i++){var k=(i+1)%n;
+    var sh=0.88+0.24*hsh((seed||0)+i*7,3);
+    push([A[i],A[k],B[k],B[i]],[col[0]*sh,col[1]*sh,col[2]*sh]);}
+  return B;
+}
+function disc(push,x,y,z,r,col,n){
+  var pts=[],i;
+  for(i=0;i<n;i++){var a=i/n*TAU;pts.push([x+r*Math.cos(a),y,z+r*Math.sin(a)]);}
+  push(pts,col,true);
+}
+/* A glacial cobble: a lumpy ellipsoid, a quarter of it buried, long axis
+   turned to a. Everything in these walls is a field-picked boulder off the
+   moraine, and a drum with a flat top never read as one. */
+var BOULDER_LOD=[[-0.74,0.55],[-0.74,0.05,0.80],[-0.74,-0.20,0.40,0.85]];
+function boulderAt(push,x,y,z,rx,ry,rz,a,col,seed,lod){
+  var L=lod===undefined?2:lod, U=BOULDER_LOD[L], N=L?6:5, rings=[], i, j;
+  var ca=Math.cos(a), sa=Math.sin(a), cy=y+ry*0.74;
+  for(i=0;i<U.length;i++){
+    var u=U[i], sc=Math.sqrt(Math.max(0,1-u*u)), ring=[];
+    for(j=0;j<N;j++){
+      var th=j/N*TAU, w=0.86+0.28*hsh(seed*3+j,i+1);
+      var lx=rx*sc*w*Math.cos(th), lz=rz*sc*w*Math.sin(th);
+      ring.push([x+lx*ca-lz*sa, cy+ry*u, z+lx*sa+lz*ca]);
+    }
+    rings.push(ring);
+  }
+  for(i=0;i<rings.length-1;i++)for(j=0;j<N;j++){
+    var k=(j+1)%N, sh=0.85+0.28*hsh(seed+j*5,i+2);
+    push([rings[i][j],rings[i][k],rings[i+1][k],rings[i+1][j]],
+         [col[0]*sh,col[1]*sh,col[2]*sh]);
+  }
+  push(rings[rings.length-1],mix(col,LICHEN,0.24));
+}
+/* A cut round lying along the run, pale sawn end toward the camera - the
+   stacked firewood on the wall at the east end of the panorama. */
+function logAt(push,x,y,z,r,L,col,seed){
+  var N=6,i,A=[],B=[];
+  for(i=0;i<N;i++){
+    var a=i/N*TAU, w=0.94+0.10*hsh(seed+i,2);
+    A.push([x+r*w*Math.cos(a),y+r+r*w*Math.sin(a),z-L/2]);
+    B.push([x+r*w*Math.cos(a),y+r+r*w*Math.sin(a),z+L/2]);
+  }
+  for(i=0;i<N;i++){var k=(i+1)%N, sh=0.84+0.30*hsh(seed+i*5,3);
+    push([A[i],A[k],B[k],B[i]],[col[0]*sh,col[1]*sh,col[2]*sh]);}
+  push(A,mix([198,168,120],RUSSET,0.25*hsh(seed,8)),true);   // the sawn face
+}
+function lyingQuad(push,x,z,y,r,a,col){
+  var ca=Math.cos(a)*r, sa=Math.sin(a)*r, cb=-Math.sin(a)*r*0.62, sb=Math.cos(a)*r*0.62;
+  push([[x-ca+cb,y,z-sa+sb],[x+ca+cb,y,z+sa+sb],
+        [x+ca-cb,y,z+sa-sb],[x-ca-cb,y,z-sa-sb]],col,true);
+}
+/* A tapered six-sided trunk with a root flare, furrowed bark and five bare
+   limbs. The facet shade is mostly fixed per facet and only slightly per
+   height band, so the variation runs UP the trunk as furrows rather than
+   round it in patches - which is what the bark does in the photographs.
+   col is the bark for this tree: the oaks are a dark grey-brown, the beeches
+   beside them nearly silver. */
+function trunkAt(push,x,y0,z,r,h,lean,a0,seed,col){
+  var slim=r<0.14, N=slim?4:6, L=slim?[0,0.12,1]:[0,0.07,0.22,0.55,0.84,1];
+  var rings=[], i, j, c=col||BARK;
+  for(i=0;i<L.length;i++){
+    var u=L[i], rr=r*(u===0?1.52:(u<0.1?1.20:(u<0.3?1.06:
+                 (u>0.95?0.14:1-0.40*u))));
+    var cx=x+lean*h*u*Math.cos(a0), cz=z+lean*h*u*Math.sin(a0), ring=[];
+    for(j=0;j<N;j++){
+      var a=a0+j/N*TAU, w=0.88+0.26*hsh(seed*5+j,3);
+      ring.push([cx+rr*w*Math.cos(a), y0+h*u, cz+rr*w*Math.sin(a)]);
+    }
+    rings.push(ring);
+  }
+  for(i=0;i<rings.length-1;i++)for(j=0;j<N;j++){
+    var k=(j+1)%N, sh=0.76+0.40*(0.74*hsh(seed+j*7,3)+0.26*hsh(seed+j*7,i+2));
+    push([rings[i][j],rings[i][k],rings[i+1][k],rings[i+1][j]],
+         [c[0]*sh,c[1]*sh,c[2]*sh]);
+  }
+  /* bare limbs, tapered, each with one fork - the canopy is off in November */
+  var nl=slim?2:(h>12?5:0);        // a trunk cut short for the overhead
+  for(i=0;i<nl;i++){               // views keeps its limbs out of the plot
+    var uu=0.56+0.095*i, ya=y0+h*uu, aa=a0+hsh(seed*2,i)*TAU;
+    var Ln=r*(5+6*hsh(seed,i+5)), rise=Ln*(0.45+0.5*hsh(seed,i+9)), w2=r*0.16;
+    var ex=x+Math.cos(aa)*Ln, ez=z+Math.sin(aa)*Ln, ey=ya+rise;
+    push([[x+Math.cos(aa)*r*0.4,ya,z+Math.sin(aa)*r*0.4],
+          [x+Math.cos(aa)*r*0.4,ya+w2*2.0,z+Math.sin(aa)*r*0.4],
+          [ex,ey+w2*0.5,ez],[ex,ey,ez]],[c[0]*0.74,c[1]*0.74,c[2]*0.72]);
+    var ab=aa+(hsh(seed,i+2)-0.5)*1.1, Lb=Ln*(0.4+0.3*hsh(seed,i+7));
+    push([[ex,ey,ez],[ex,ey+w2,ez],
+          [ex+Math.cos(ab)*Lb,ey+Lb*0.8+w2*0.4,ez+Math.sin(ab)*Lb],
+          [ex+Math.cos(ab)*Lb,ey+Lb*0.8,ez+Math.sin(ab)*Lb]],
+         [c[0]*0.70,c[1]*0.70,c[2]*0.68]);
+  }
+  /* the collar of deeper litter that drifts against every trunk */
+  if(!slim)disc(push,x,y0+0.03,z,r*2.3,mix(LITTER_DK,DUFF,0.35),8);
+}
+/* pedestal, bowl and the leaf litter sitting in it - see the close photos */
+function birdbathAt(push,x,y,z,R){
+  var h=2.1;
+  ringW(push,x,y,z,R*0.50,R*0.40,0.20,[140,136,126],8,0.10,2);
+  ringW(push,x,y+0.20,z,R*0.30,R*0.26,h-0.42,[148,144,133],8,0.16,5);
+  ringW(push,x,y+h-0.22,z,R*0.55,R,0.34,[154,151,141],12,0.05,7);
+  disc(push,x,y+h+0.13,z,R*0.93,mix(LITTER_DK,RUSSET,0.4),12);
+}
+/* the well: a ring of the same fieldstone round a dark mouth */
+function wellAt(push,x,y,z,R){
+  disc(push,x,y+0.06,z,R*0.70,[62,58,50],10);   // dark, but not a hole in the world
+  for(var i=0;i<9;i++){
+    var a=i/9*TAU+0.2, rr=0.20+0.10*hsh(i,21);
+    var sx=x+(R-rr*0.5)*Math.cos(a), sz=z+(R-rr*0.5)*Math.sin(a), yb=elev(sx,sz);
+    ringW(push,sx,yb,sz,rr*0.95,rr*0.70,rr*1.6,mix(STONE,MOSS,0.35*hsh(i,9)),5,0.30,i);
+    disc(push,sx,yb+rr*1.6,sz,rr*0.62,mix(STONE,LICHEN,0.30),5);
+  }
+}
+/* Looking down from High or Top the job is clearances, and sixty full-height
+   trunks splay across the plot and hide the track. From overhead they are cut
+   to a stump; at eye level, where they are the view, they stand full. */
+function trunkCut(){return (!PANO&&C3.ph<0.72)?9:1e9;}
+function emitScenery(push){
+  if(!SCENERY||!SCN)return;
+  var i,j,hc=trunkCut();
+  for(i=0;i<SCN.stones.length;i++){
+    var st=SCN.stones[i], b=groundY(st.x,st.z)+st.y;
+    var base=st.w?mix(STONE,STONE_W,0.45+0.5*hsh(st.s,2)):STONE;
+    var col=st.m?mix(base,MOSS,0.38):(st.l?mix(base,LICHEN,0.42):base);
+    col=mix(col,LITTER_DK,0.16*hsh(st.s,7));
+    col=mix(col,SHADE_C,0.30*shadowAt(st.x,st.z));
+    /* Three hundred-odd boulders at full detail is most of the frame's
+       polygons. Only the ones you are standing over need the bands. */
+    var sd=Math.abs(st.x-VM.e[0])+Math.abs(st.z-VM.e[2]);
+    boulderAt(push,st.x,b,st.z,st.rx,st.ry,st.rz,st.a,col,st.s,
+              sd<8?2:(sd<20?1:0));
+  }
+  for(i=0;i<SCN.logs.length;i++){
+    var lg=SCN.logs[i];
+    logAt(push,lg.x,elev(lg.x,lg.z)+lg.y,lg.z,lg.r,lg.L,
+          mix(BARK,[96,78,62],lg.t),i*3+1);
+  }
+  for(i=0;i<SCN.trees.length;i++){
+    var t=SCN.trees[i];
+    var bc=mix(BARK,BARK_PALE,t.b*t.b);
+    /* The woods behind get their haze baked in. General distance fog starts
+       too far out to touch them in the panorama, where everything in sight
+       is inside forty feet, and without the separation they came forward
+       and stood on the railway. */
+    if(t.far)bc=mix(bc,FOG,0.42);
+    trunkAt(push,t.x,elev(t.x,t.z),t.z,t.r,Math.min(t.h,hc),t.lean,t.a,i+3,bc);
+  }
+  for(i=0;i<SCN.patches.length;i++){
+    var p=SCN.patches[i];
+    lyingQuad(push,p.x,p.z,p.y+0.035,p.r,p.a,
+      mix(mix(VINCA,[68,96,60],p.t),SHADE_C,0.34*p.sh));
+  }
+  for(i=0;i<SCN.flecks.length;i++){
+    var f=SCN.flecks[i];
+    lyingQuad(push,f.x,f.z,f.y+0.02,f.r,f.a,
+      mix(mix(mix(LITTER_LT,RUSSET,f.t),LITTER_DK,0.3*hsh(i,17)),SHADE_C,0.34*f.sh));
+  }
+  for(i=0;i<SCN.tufts.length;i++){
+    var u=SCN.tufts[i], uc=mix(mix(mix(DRY,[150,124,78],0.45),[128,132,92],u.dry*0.5),
+                               SHADE_C,0.30*u.sh);
+    for(j=0;j<u.n;j++){
+      var a=u.a+j/u.n*TAU, hh=u.h*(0.7+0.5*hsh(i*3+j,13)), ln=0.34*hh;
+      var bx=u.x+0.05*Math.cos(a), bz=u.z+0.05*Math.sin(a);
+      var tx=bx+ln*Math.cos(a), tz=bz+ln*Math.sin(a);
+      push([[bx-0.04*Math.sin(a),u.y,bz+0.04*Math.cos(a)],
+            [bx+0.04*Math.sin(a),u.y,bz-0.04*Math.cos(a)],
+            [tx+0.012*Math.sin(a),u.y+hh,tz-0.012*Math.cos(a)],
+            [tx-0.012*Math.sin(a),u.y+hh,tz+0.012*Math.cos(a)]],uc,true);
+    }
+  }
+}
+
+function draw3(){
+  var r=c3.getBoundingClientRect();VW=r.width;VH=r.height;
+  g3.clearRect(0,0,VW,VH);
+  var sky=g3.createLinearGradient(0,0,0,VH);
+  if(SCENERY){sky.addColorStop(0,'#93a7b3');sky.addColorStop(.52,'#bcc4c3');sky.addColorStop(1,'#cdccc0');}
+  else{sky.addColorStop(0,'#2b3a42');sky.addColorStop(1,'#1a211e');}
+  g3.fillStyle=sky;g3.fillRect(0,0,VW,VH);
+  if(VH<10)return;
+  FOC=(VH/2)/Math.tan(26*D2R);
+  PPR=VW/PANO_FOV;                      // pixels per radian of azimuth
+  VM=view3();
+  if(!TERR)buildTerrain();
+  var polys=[];
+  function push(ptsW,base,flat){
+    var sp=[],i,x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+    for(i=0;i<ptsW.length;i++){
+      var q=proj(ptsW[i]);if(!q)return;sp.push(q);
+      if(q[0]<x0)x0=q[0];if(q[0]>x1)x1=q[0];
+      if(q[1]<y0)y0=q[1];if(q[1]>y1)y1=q[1];
+    }
+    if(x1<0||x0>VW||y1<0||y0>VH)return;        // wholly off the canvas
+    var z=0;for(i=0;i<sp.length;i++)z+=sp[i][2];z/=sp.length;
+    var col=base;
+    if(!flat){
+      var n=quadNormal(ptsW[0],ptsW[1],ptsW[2]);
+      if(n[1]<-0.2)n=[-n[0],-n[1],-n[2]];
+      col=shade(n,base);
+    }
+    /* Aerial perspective. Nothing 40 ft off needs it, but the woods behind
+       the plot do, and without it the far trunks come forward and sit on the
+       railway. */
+    if(SCENERY){var ft=(z-45)/150;if(ft>0)col=mix(col,FOG,Math.min(0.70,ft));}
+    polys.push({z:z,p:sp,c:'rgb('+cl(col[0])+','+cl(col[1])+','+cl(col[2])+')'});
+  }
+  // terrain, already carved to a level bench where track runs
+  var xi,zi;
+  for(xi=0;xi<TERR.length-1;xi++){
+    for(zi=0;zi<TERR[xi].length-1;zi++){
+      var A=TERR[xi][zi],B=TERR[xi+1][zi],Cc=TERR[xi+1][zi+1],Dd=TERR[xi][zi+1];
+      var benched=A[3]||Cc[3];
+      push([A,B,Cc,Dd],groundCol((A[0]+Cc[0])/2,(A[2]+Cc[2])/2,benched,xi,zi));
+    }
+  }
+  // boundary ribbon
+  var NXc=46;
+  for(xi=0;xi<NXc;xi++){
+    var xa2=X0+(X1-X0)*xi/NXc,xb2=X0+(X1-X0)*(xi+1)/NXc;
+    [[nz,1],[sz,-1]].forEach(function(e){
+      var f=e[0],s=e[1];
+      var z1=f(xa2),z2=f(xb2);
+      var rw=SCENERY?0.10:0.22;     // the stone wall carries the line in scenery mode
+      push([[xa2,elev(xa2,z1)+0.05,z1],[xb2,elev(xb2,z2)+0.05,z2],
+            [xb2,elev(xb2,z2)+0.05,z2-s*rw],[xa2,elev(xa2,z1)+0.05,z1-s*rw]],
+           SCENERY?[188,150,44]:[224,176,32],true);
+    });
+  }
+  // ground beyond the surveyed edges - unmeasured, so drawn plainer
+  if(SCENERY){
+    /* The hillside does not stop at the survey pegs. It runs out to GROUND_OUT
+       so that the woods behind stand on something and - the reason it was
+       widened - so that the panorama camera, which stands well off the south
+       wall, is not floating over a hole. Bands get coarser with distance. */
+    var AN=34, BANDS=5, OUTX=22;
+    for(xi=0;xi<AN;xi++){
+      var ax=X0-OUTX+(X1-X0+2*OUTX)*xi/AN, bx=X0-OUTX+(X1-X0+2*OUTX)*(xi+1)/AN;
+      [[nz,1],[sz,-1]].forEach(function(e){
+        var f=e[0],sg=e[1],k;
+        var za=f(Math.max(X0,Math.min(X1,ax))), zb=f(Math.max(X0,Math.min(X1,bx)));
+        function band(j){var u=j/BANDS;return GROUND_OUT*u*u;}   // tight near the wall
+        for(k=0;k<BANDS;k++){
+          var o0=band(k), o1=band(k+1);
+          var c=mix(groundCol(ax,za+sg*o0,false,xi,k),[128,112,92],0.10+0.06*k);
+          push([[ax,elev(ax,za+sg*o0)-0.02,za+sg*o0],[bx,elev(bx,zb+sg*o0)-0.02,zb+sg*o0],
+                [bx,elev(bx,zb+sg*o1)-0.02,zb+sg*o1],[ax,elev(ax,za+sg*o1)-0.02,za+sg*o1]],c);
+        }
+        // a shallow skirt, so the hillside has an edge rather than a cliff
+        var zo=za+sg*GROUND_OUT, zo2=zb+sg*GROUND_OUT;
+        push([[ax,elev(ax,zo),zo],[bx,elev(bx,zo2),zo2],
+              [bx,elev(bx,zo2)-2.2,zo2],[ax,elev(ax,zo)-2.2,zo]],[104,92,76]);
+      });
+    }
+  }
+  // walls, trunks, groundcover and litter - appearance only, see buildScenery
+  emitScenery(push);
+  // the three surveyed solids
+  OBST.forEach(function(o){
+    var h=(o.k==='tree'||o.n==='oak')?10:(o.n==='well'?1.2:2.4),R=o.d/2,seg=10,b=elev(o.x,o.z);
+    if(SCENERY){
+      var kind=o.k||(o.n==='oak'?'tree':(o.n==='birdbath'?'bath':'well'));
+      if(kind==='tree')
+        trunkAt(push,o.x,b,o.z,R,Math.min(o.h||(34+R*12),trunkCut()),
+                0.015,0.6+o.x,(o.x*7)|0,
+                mix(BARK,[86,74,62],0.55));
+      else if(kind==='bath')birdbathAt(push,o.x,b,o.z,R);
+      else wellAt(push,o.x,b,o.z,R);
+      return;
+    }
+    for(var i=0;i<seg;i++){
+      var a1=i/seg*TAU,a2=(i+1)/seg*TAU;
+      var p1=[o.x+R*Math.cos(a1),b,o.z+R*Math.sin(a1)];
+      var p2=[o.x+R*Math.cos(a2),b,o.z+R*Math.sin(a2)];
+      push([p1,p2,[p2[0],b+h,p2[2]],[p1[0],b+h,p1[2]]],
+           o.n==='oak'?[118,102,84]:(o.n==='well'?[132,132,124]:[150,146,136]));
+    }
+  });
+  // track + earthworks
+  pieces.forEach(function(p){
+    var d=CAT[p.def],routes=[routePts(p,'out')];
+    if(d.k==='t')routes.push(routePts(p,'div'));
+    routes.forEach(function(pts){
+      for(var i=0;i<pts.length-1;i++){
+        var a=pts[i],b=pts[i+1];
+        var na=[-Math.sin(a[2]),Math.cos(a[2])],nb=[-Math.sin(b[2]),Math.cos(b[2])];
+        var w=0.39;
+        push([[a[0]+na[0]*w,trackY,a[1]+na[1]*w],[b[0]+nb[0]*w,trackY,b[1]+nb[1]*w],
+              [b[0]-nb[0]*w,trackY,b[1]-nb[1]*w],[a[0]-na[0]*w,trackY,a[1]-na[1]*w]],
+             [128,124,116]);
+        [-0.0738,0.0738].forEach(function(off){
+          var rw=0.03;
+          push([[a[0]+na[0]*(off+rw),trackY+0.07,a[1]+na[1]*(off+rw)],
+                [b[0]+nb[0]*(off+rw),trackY+0.07,b[1]+nb[1]*(off+rw)],
+                [b[0]+nb[0]*(off-rw),trackY+0.07,b[1]+nb[1]*(off-rw)],
+                [a[0]+na[0]*(off-rw),trackY+0.07,a[1]+na[1]*(off-rw)]],
+               [214,176,104],true);
+        });
+        // support below / wall above
+        var gy=elev(b[0],b[1]),dd=gy-trackY;
+        if(i%3===0){
+          if(dd<-0.45){
+            [-0.42,0.42].forEach(function(o2){
+              var px=b[0]+nb[0]*o2,pz=b[1]+nb[1]*o2;
+              push([[px-0.07,trackY,pz],[px+0.07,trackY,pz],
+                    [px+0.07,gy,pz],[px-0.07,gy,pz]],[96,76,56]);
+            });
+          } else if(dd>0.35){
+            push([[b[0]+nb[0]*0.85,trackY-0.1,b[1]+nb[1]*0.85],
+                  [b[0]+nb[0]*0.85+0.5*Math.cos(b[2]),trackY-0.1,b[1]+nb[1]*0.85+0.5*Math.sin(b[2])],
+                  [b[0]+nb[0]*0.85+0.5*Math.cos(b[2]),trackY+dd,b[1]+nb[1]*0.85+0.5*Math.sin(b[2])],
+                  [b[0]+nb[0]*0.85,trackY+dd,b[1]+nb[1]*0.85]],[140,140,132]);
+          }
+        }
+      }
+    });
+  });
+  // train
+  var at=sampleCircuit();
+  if(at){
+    var off=0;
+    CARS.forEach(function(car){
+      var c=at(trainS-off-car.l/2),hw=0.42,hh=0.62;
+      var ca=Math.cos(c[2]),sa=Math.sin(c[2]);
+      function P(du,dv,h){return [c[0]+ca*du-sa*dv,trackY+0.12+h,c[1]+sa*du+ca*dv];}
+      var L2=car.l/2;
+      var rgb=[parseInt(car.c.substr(1,2),16),parseInt(car.c.substr(3,2),16),parseInt(car.c.substr(5,2),16)];
+      push([P(-L2,-hw,hh),P(L2,-hw,hh),P(L2,hw,hh),P(-L2,hw,hh)],rgb);
+      push([P(-L2,-hw,0),P(L2,-hw,0),P(L2,-hw,hh),P(-L2,-hw,hh)],rgb);
+      push([P(-L2,hw,0),P(L2,hw,0),P(L2,hw,hh),P(-L2,hw,hh)],rgb);
+      off+=car.l+0.18;
+    });
+  }
+  polys.sort(function(a,b){return b.z-a.z;});
+  for(var i=0;i<polys.length;i++){
+    var q=polys[i];
+    g3.beginPath();g3.moveTo(q.p[0][0],q.p[0][1]);
+    for(var j=1;j<q.p.length;j++)g3.lineTo(q.p[j][0],q.p[j][1]);
+    g3.closePath();g3.fillStyle=q.c;g3.fill();
+    g3.strokeStyle=q.c;g3.lineWidth=1;g3.stroke();      // close the seams
+  }
+  drawCompass(g3,VW,VH,northAngle3(),!SCENERY);
+}
+
+/* ============================ VALIDATION / UI ============================= */
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function inches(v){var i=Math.round(v*12);return i<24?i+' in':v.toFixed(1)+' ft';}
+/* A margin thinner than the survey can resolve is shown to two decimals rather
+   than rounded, so "0.02 in" cannot read as a comfortable pass. */
+function clearText(v){
+  var i=v*12;
+  return Math.abs(i)<1?i.toFixed(2)+' in':Math.round(i)+' in';
+}
+/* Earthworks over the laid track.
+
+   Two things were wrong here. Every turnout was measured along BOTH its routes,
+   so its ground counted twice. And anything with more than 0.45 ft of fill was
+   called trestle, when the design embanks fill up to a foot and only trestles
+   past that - so the whole filled yard bench came out as trestle. Between them
+   that reported about four times the trestle Phase 2 budgets: 72 ft against
+   17 ft, which at 3 ft centres is 24 bents against six.
+
+   Reported by DEPTH, not by construction method. Depth alone cannot tell you
+   whether deep fill becomes trestle or a compacted bench: the plan trestles the
+   downhill leg where fill passes a foot, but the yard sits on 13-17 in of
+   compacted earth by choice, because it is a flat area you walk on. Calling
+   every deep stretch "trestle" turned the yard bench into 24 bents. */
+function earthworks(){return earthworksOf(pieces,planeOf(pieces));}
+/* Tightest daylight to each obstacle, solved against the exact track shape. */
+function clearances(){
+  var shapes=allShapes(),out=[];
+  OBST.forEach(function(o){
+    var best=Infinity;
+    shapes.forEach(function(s){
+      best=Math.min(best,shapeDist(o.x,o.z,s)-o.d/2-HALF);
+    });
+    out.push({o:o,gap:best});
+  });
+  return out;
+}
+/* Tightest room to any boundary. Negative means over the line. */
+function boundaryRoom(){
+  var worst=Infinity;
+  pieces.forEach(function(p){
+    routeShapes(p).forEach(function(s){
+      shapePoints(s).forEach(function(q){
+        var r=Math.min(nz(q[0])-EDGE-q[1], q[1]-(sz(q[0])+EDGE),
+                       q[0]-(X0+0.3), (X1-0.3)-q[0]);
+        if(r<worst)worst=r;
+      });
+    });
+  });
+  return worst;
+}
+/* What to buy. D5 says flex, not sectional: a curve is bent from a flex length
+   rather than assembled from 30-degree pieces, so the parts come off the LENGTH
+   of track, not off the pieces drawn. Listing "Curve R54 x12" told you to buy
+   twelve sectional curves the plan explicitly says not to buy, and counting
+   clamps as pieces*2 treated each 2.36 ft curve piece as a part. */
+function materials(total,oe){return materialsOf(pieces,oe);}
+/* The same count over any subset - the loop alone, or the yard and siding
+   hanging off it - so each phase can be costed against the track it lays. */
+function materialsOf(ps,oe){
+  var flex=0,nT=0,len=0;
+  ps.forEach(function(p){
+    len+=pieceLen(p);
+    if(CAT[p.def].k==='t')nT++; else flex+=pieceLen(p);
+  });
+  var lengths=flex>0?Math.ceil(flex/FLEX_LEN):0;
+  var ends=2*lengths+3*nT;
+  var joints=Math.max(0,Math.floor((ends-oe)/2));
+  return {len:len,flex:flex,lengths:lengths,turnouts:nT,joints:joints,
+          clamps:2*joints,
+          feeders:len>0?Math.max(2,Math.ceil(len/FEEDER_EVERY)):0};
+}
+
+/* ===================== PDF ================================================
+   A small PDF writer, by hand. A library would do this too, but jsPDF and its
+   kind are 350 kB upwards and every byte of that would be precached for
+   offline use, on an app that is otherwise 145 kB in total. PDF is a text
+   format, the content here is text and straight lines, and Helvetica is one
+   of the fourteen fonts every reader has built in - so nothing has to be
+   embedded and nothing has to be downloaded.
+
+   Letter paper, because the railway is in Massachusetts. */
+var PDF=(function(){
+  var PW=612,PH=792,MX=56,MY=56;        /* page, and 0.78 in margins */
+  var LEAD=1.32;                        /* line height, times the font size */
+
+  /* Adobe's widths for the two faces, in 1/1000 em, for space to tilde.
+     Only used to decide where a line breaks, so the handful of characters
+     outside this range fall back to a sensible average rather than failing. */
+  var WR=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,
+    556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,
+    1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,
+    667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,
+    333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,
+    556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+  var WB=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,
+    556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,
+    975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,
+    667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,
+    333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,
+    611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+  /* The few beyond ASCII this document actually uses, as WinAnsi codes. */
+  var EXTRA={'–':[150,556,556],'—':[151,1000,1000],
+    '’':[146,222,238],'‘':[145,222,238],
+    '“':[147,333,500],'”':[148,333,500],
+    '°':[176,400,400],'½':[189,834,834],'¼':[188,834,834],
+    '×':[215,584,584],'·':[183,278,278],'…':[133,1000,1000],
+    '→':[45,333,333],' ':[32,278,278]};
+
+  /* WinAnsi bytes, with the PDF string escapes. Anything unmapped becomes a
+     question mark rather than a broken file. */
+  function enc(s){
+    var out='',i,ch,c;
+    for(i=0;i<s.length;i++){
+      ch=s.charAt(i);c=s.charCodeAt(i);
+      if(EXTRA[ch])c=EXTRA[ch][0];
+      else if(c>126)c=63;
+      if(c===40||c===41||c===92)out+='\\';
+      out+=String.fromCharCode(c);
+    }
+    return out;
+  }
+  function width(s,size,bold){
+    var w=0,i,ch,c;
+    for(i=0;i<s.length;i++){
+      ch=s.charAt(i);c=s.charCodeAt(i);
+      if(EXTRA[ch])w+=EXTRA[ch][bold?2:1];
+      else if(c>=32&&c<=126)w+=(bold?WB:WR)[c-32];
+      else w+=556;
+    }
+    return w*size/1000;
+  }
+  function wrap(text,size,bold,maxw){
+    var words=String(text).split(/\s+/),lines=[],line='';
+    words.forEach(function(wd){
+      var test=line?line+' '+wd:wd;
+      if(line&&width(test,size,bold)>maxw){lines.push(line);line=wd;}
+      else line=test;
+    });
+    if(line)lines.push(line);
+    return lines.length?lines:[''];
+  }
+
+  function Doc(opts){
+    opts=opts||{};
+    this.pages=[];this.ops=null;this.y=0;
+    this.footer=opts.footer||'';
+    this.page();
+  }
+  Doc.prototype.page=function(){
+    this.ops=[];this.pages.push(this.ops);
+    this.y=PH-MY;
+    return this;
+  };
+  Doc.prototype.room=function(h){
+    if(this.y-h<MY+22)this.page();
+    return this;
+  };
+  Doc.prototype.gap=function(h){this.y-=h;return this;};
+  Doc.prototype.grey=function(g){this.ops.push(g.toFixed(3)+' g');return this;};
+  /* One run of text at an absolute position. */
+  Doc.prototype.at=function(x,y,s,size,bold,g){
+    this.ops.push('BT /'+(bold?'FB':'FR')+' '+size+' Tf '
+      +(g===undefined?0:g).toFixed(3)+' g '
+      +x.toFixed(2)+' '+y.toFixed(2)+' Td ('+enc(s)+') Tj ET');
+    return this;
+  };
+  Doc.prototype.right=function(x,y,s,size,bold,g){
+    return this.at(x-width(s,size,bold),y,s,size,bold,g);
+  };
+  /* Flowed paragraph. Returns this. */
+  Doc.prototype.para=function(text,o){
+    o=o||{};
+    var size=o.size||9.6,bold=!!o.bold,g=o.grey===undefined?0.12:o.grey;
+    var ind=o.indent||0,maxw=PW-MX*2-ind-(o.rightPad||0);
+    var lines=wrap(text,size,bold,maxw),self=this;
+    lines.forEach(function(ln){
+      self.room(size*LEAD);
+      self.y-=size*LEAD;
+      self.at(MX+ind,self.y,ln,size,bold,g);
+    });
+    return this;
+  };
+  Doc.prototype.h1=function(s){
+    this.room(34);this.y-=22;
+    this.at(MX,this.y,s,17,true,0);
+    this.y-=6;
+    return this;
+  };
+  Doc.prototype.h2=function(s,note){
+    this.room(40);this.y-=19;
+    this.at(MX,this.y,s,13,true,0);
+    if(note)this.right(PW-MX,this.y,note,9,false,0.42);
+    this.y-=5;
+    this.rule(0.8,0.75);
+    return this;
+  };
+  Doc.prototype.h3=function(s){
+    this.room(24);this.y-=14;
+    this.at(MX,this.y,s,10,true,0.05);
+    this.y-=2;
+    return this;
+  };
+  Doc.prototype.rule=function(w,g){
+    this.ops.push((g===undefined?0.8:g).toFixed(3)+' G '+(w||0.5)+' w '
+      +MX+' '+this.y.toFixed(2)+' m '+(PW-MX)+' '+this.y.toFixed(2)+' l S');
+    this.y-=4;
+    return this;
+  };
+  Doc.prototype.bullets=function(items){
+    var self=this;
+    items.forEach(function(it){
+      var lines=wrap(it,9.6,false,PW-MX*2-16);
+      self.room(lines.length*9.6*LEAD+2);
+      lines.forEach(function(ln,i){
+        self.y-=9.6*LEAD;
+        if(i===0)self.at(MX+3,self.y,'·',9.6,true,0.35);
+        self.at(MX+16,self.y,ln,9.6,false,0.12);
+      });
+      self.y-=1.5;
+    });
+    return this;
+  };
+  /* Label on the left, value on the right, dotted between. */
+  Doc.prototype.rows=function(rows){
+    var self=this;
+    rows.forEach(function(r){
+      var label=String(r[0]),value=String(r[1]);
+      var vw=width(value,9.6,false);
+      var lines=wrap(label,9.6,false,PW-MX*2-vw-24);
+      self.room(lines.length*9.6*LEAD+1);
+      lines.forEach(function(ln,i){
+        self.y-=9.6*LEAD;
+        self.at(MX+6,self.y,ln,9.6,false,0.3);
+        if(i===lines.length-1)self.right(PW-MX-6,self.y,value,9.6,false,0);
+      });
+      self.ops.push('0.88 G 0.4 w '+(MX+2)+' '+(self.y-3).toFixed(2)+' m '
+        +(PW-MX-2)+' '+(self.y-3).toFixed(2)+' l S');
+      self.y-=3.5;
+    });
+    return this;
+  };
+  /* An indented call-out with a rule down its left edge. */
+  Doc.prototype.note=function(head,body){
+    var size=9.2,ind=18;
+    var lines=wrap((head?head+' ':'')+body,size,false,PW-MX*2-ind-10);
+    this.room(lines.length*size*LEAD+10);
+    var top=this.y-4,self=this;
+    this.y-=4;
+    lines.forEach(function(ln,i){
+      self.y-=size*LEAD;
+      /* The lead-in is bold; the rest of its line is not, so the first line
+         is drawn in two runs. */
+      if(i===0&&head&&ln.indexOf(head)===0){
+        self.at(MX+ind,self.y,head,size,true,0);
+        self.at(MX+ind+width(head+' ',size,true),self.y,
+          ln.slice(head.length+1),size,false,0.18);
+      } else self.at(MX+ind,self.y,ln,size,false,0.18);
+    });
+    this.ops.push('0.72 G 1.6 w '+(MX+6)+' '+top.toFixed(2)+' m '
+      +(MX+6)+' '+(this.y-2).toFixed(2)+' l S');
+    this.y-=6;
+    return this;
+  };
+  /* The plan, as vectors: boundary, obstacles, track casing, centreline. */
+  Doc.prototype.plan=function(h){
+    var shapes=[],i,total=0;
+    pieces.forEach(function(p){
+      routeShapes(p).forEach(function(s){
+        var pts=shapePoints(s);total+=pts.length;shapes.push(pts);});
+    });
+    if(!shapes.length)return this;
+    /* One point every few feet of paper is plenty here, and it is the
+       difference between a 20 kB file and a 110 kB one. Both ends of every
+       run are always kept. */
+    var step=Math.max(1,Math.ceil(total/900));
+    if(step>1)shapes=shapes.map(function(pts){
+      var out=[],j;
+      for(j=0;j<pts.length;j+=step)out.push(pts[j]);
+      if(out[out.length-1]!==pts[pts.length-1])out.push(pts[pts.length-1]);
+      return out;
+    });
+    var W=PW-MX*2;
+    this.room(h+14);
+    this.y-=h;
+    var x0=X0,x1=X1,lo=0,hi=0;
+    for(i=0;i<=80;i++){
+      var xx=X0+(X1-X0)*i/80;
+      lo=Math.min(lo,sz(xx));hi=Math.max(hi,nz(xx));
+    }
+    var sc=Math.min(W/(x1-x0),h/Math.max(hi-lo,1e-6));
+    var ox=MX+(W-(x1-x0)*sc)/2,oy=this.y+(h-(hi-lo)*sc)/2;
+    var FX=function(x){return ox+(x-x0)*sc;};
+    var FY=function(z){return oy+(z-lo)*sc;};
+    var ops=this.ops;
+    /* the plot */
+    var d='',x;
+    for(i=0;i<=60;i++){
+      x=X0+(X1-X0)*i/60;
+      d+=FX(x).toFixed(2)+' '+FY(nz(x)).toFixed(2)+(i?' l ':' m ');
+    }
+    for(i=60;i>=0;i--){
+      x=X0+(X1-X0)*i/60;
+      d+=FX(x).toFixed(2)+' '+FY(sz(x)).toFixed(2)+' l ';
+    }
+    ops.push('0.82 0.66 0.30 RG 1 w '+d+'h S');
+    /* obstacles */
+    OBST.forEach(function(o){
+      var r=o.d/2*sc,cx=FX(o.x),cy=FY(o.z),k=0.5523*r;
+      ops.push('0.62 0.58 0.50 RG 0.7 w '
+        +(cx+r).toFixed(2)+' '+cy.toFixed(2)+' m '
+        +(cx+r).toFixed(2)+' '+(cy+k).toFixed(2)+' '+(cx+k).toFixed(2)+' '+(cy+r).toFixed(2)+' '+cx.toFixed(2)+' '+(cy+r).toFixed(2)+' c '
+        +(cx-k).toFixed(2)+' '+(cy+r).toFixed(2)+' '+(cx-r).toFixed(2)+' '+(cy+k).toFixed(2)+' '+(cx-r).toFixed(2)+' '+cy.toFixed(2)+' c '
+        +(cx-r).toFixed(2)+' '+(cy-k).toFixed(2)+' '+(cx-k).toFixed(2)+' '+(cy-r).toFixed(2)+' '+cx.toFixed(2)+' '+(cy-r).toFixed(2)+' c '
+        +(cx+k).toFixed(2)+' '+(cy-r).toFixed(2)+' '+(cx+r).toFixed(2)+' '+(cy-k).toFixed(2)+' '+(cx+r).toFixed(2)+' '+cy.toFixed(2)+' c S');
+    });
+    /* track: a grey casing with the rail line over it */
+    function stroke(colour,w){
+      shapes.forEach(function(pts){
+        var d='';
+        pts.forEach(function(q,j){
+          d+=FX(q[0]).toFixed(2)+' '+FY(q[1]).toFixed(2)+(j?' l ':' m ');
+        });
+        ops.push(colour+' '+w.toFixed(2)+' w 1 J 1 j '+d+' S');
+      });
+    }
+    stroke('0.47 0.46 0.43 RG',Math.max(2.2,0.78*sc*0.9));
+    stroke('0.82 0.66 0.36 RG',Math.max(0.9,0.30*sc*0.9));
+    this.y-=10;
+    return this;
+  };
+
+  Doc.prototype.bytes=function(){
+    var self=this,objs=[],out='';
+    var n=this.pages.length;
+    /* 1 catalog, 2 pages, 3 font R, 4 font B, then page + content pairs */
+    var kids=[];
+    for(var i=0;i<n;i++)kids.push((5+i*2)+' 0 R');
+    objs.push('<< /Type /Catalog /Pages 2 0 R >>');
+    objs.push('<< /Type /Pages /Count '+n+' /Kids ['+kids.join(' ')+'] >>');
+    objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica '
+      +'/Encoding /WinAnsiEncoding >>');
+    objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold '
+      +'/Encoding /WinAnsiEncoding >>');
+    this.pages.forEach(function(ops,i){
+      var body=ops.join('\n');
+      if(self.footer){
+        body+='\nBT /FR 8 Tf 0.55 g '+MX+' '+(MY-18)+' Td ('
+          +enc(self.footer)+') Tj ET';
+        var pn='Page '+(i+1)+' of '+n;
+        body+='\nBT /FR 8 Tf 0.55 g '+(PW-MX-width(pn,8,false)).toFixed(2)
+          +' '+(MY-18)+' Td ('+enc(pn)+') Tj ET';
+      }
+      objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+PW+' '+PH+'] '
+        +'/Resources << /Font << /FR 3 0 R /FB 4 0 R >> >> '
+        +'/Contents '+(6+i*2)+' 0 R >>');
+      objs.push('<< /Length '+body.length+' >>\nstream\n'+body+'\nendstream');
+    });
+
+    out='%PDF-1.4\n';
+    var offsets=[0];
+    objs.forEach(function(o,i){
+      offsets.push(out.length);
+      out+=(i+1)+' 0 obj\n'+o+'\nendobj\n';
+    });
+    var xref=out.length;
+    out+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n';
+    for(var k=1;k<=objs.length;k++)
+      out+=('0000000000'+offsets[k]).slice(-10)+' 00000 n \n';
+    out+='trailer\n<< /Size '+(objs.length+1)+' /Root 1 0 R >>\nstartxref\n'
+      +xref+'\n%%EOF\n';
+
+    var bytes=new Uint8Array(out.length);
+    for(var b=0;b<out.length;b++)bytes[b]=out.charCodeAt(b)&0xff;
+    return bytes;
+  };
+
+  return {Doc:Doc,width:width,wrap:wrap};
+})();
+
+/* ===================== THE BUILD DOCUMENT =================================
+   BUILD-PLAN.md is the hand-written plan for the adopted layout: eight phases,
+   each with tasks, measured materials and a gate. This builds the same thing
+   for whatever layout is on screen - the standing text is the plan's, every
+   number is recomputed from the track as drawn.
+
+   The split between phases 1-4 and phase 6 is the plan's own: get trains
+   running on the loop first, add switching later. A saved layout does not
+   record which pieces belong to the yard, but it does not have to - the
+   mainline is the closed ring, and anything hanging off it is the later work.
+   That is exactly the distinction the plan draws. */
+
+function planeOf(ps){
+  var lo=Infinity,hi=-Infinity;
+  ps.forEach(function(p){
+    shapePoints(routeShapes(p)[0]).forEach(function(q){
+      var e=elev(q[0],q[1]);
+      if(e<lo)lo=e;
+      if(e>hi)hi=e;
+    });
+  });
+  return isFinite(lo)?(lo+hi)/2:0;
+}
+/* The earthwork over any subset, against a datum shared by the whole railway.
+   Volumes as well as depths: cut is excavated, embankment consumes fill, and
+   trestle consumes none - which is why the two do not balance. */
+function earthworksOf(ps,y0){
+  var cut=0,fill=0,wall=0,deep=0,mid=0,cutV=0,fillV=0;
+  ps.forEach(function(p){
+    var pts=shapePoints(routeShapes(p)[0]);
+    for(var i=1;i<pts.length;i++){
+      var q=pts[i],seg=Math.hypot(q[0]-pts[i-1][0],q[1]-pts[i-1][1]);
+      var e=elev(q[0],q[1])-y0;
+      if(e>0){
+        if(e>cut)cut=e;
+        if(e>WALL_AT)wall+=seg;
+        if(e>0.05)cutV+=e*BENCH_W*seg;
+      } else {
+        var fv=-e;
+        if(fv>fill)fill=fv;
+        if(fv>TRESTLE_AT)deep+=seg; else if(fv>EMBANK_AT)mid+=seg;
+        if(fv>0.05&&fv<=TRESTLE_AT)fillV+=fv*BENCH_W*seg;
+      }
+    }
+  });
+  return {plane:y0,cut:cut,fill:fill,wall:wall,fillDeep:deep,fillMid:mid,
+          cutV:cutV,fillV:fillV};
+}
+/* Mainline ring, and everything hanging off it. */
+function phaseSplit(){
+  var ring=(circuit&&circuit.loop&&circuit.ids)?circuit.ids:null;
+  var main=[],extra=[];
+  pieces.forEach(function(p){
+    if(ring&&!ring[p.id])extra.push(p); else main.push(p);
+  });
+  return {ring:!!ring,main:main,extra:extra};
+}
+function qtyFor(ps,y0,oe){
+  var m=materialsOf(ps,oe),ew=earthworksOf(ps,y0);
+  /* Phase 3 lays the main line in flex with no turnouts in it - the turnouts
+     are cut in later, in phase 6, which is what buys them. So its track order
+     is the WHOLE ring as flex, not the ring minus the turnouts that are not
+     there yet. Costing it the other way under-ordered by the length of every
+     turnout on the main line. */
+  var fl=m.len>0?Math.ceil(m.len/FLEX_LEN):0;
+  var fj=Math.max(0,Math.floor((2*fl-oe)/2));
+  return {m:m,ew:ew,len:m.len,
+    flat:{lengths:fl,joints:fj,clamps:2*fj,orderFt:Math.ceil(m.len*RATES.WASTE)},
+    cutCuYd:ew.cutV/RATES.CU_YD,
+    fillCuYd:ew.fillV/RATES.CU_YD,
+    spareCuYd:(ew.cutV-ew.fillV)/RATES.CU_YD,
+    bents:ew.fillDeep>0?Math.max(1,Math.round(ew.fillDeep/RATES.BENT_SPACING)):0,
+    ballastCuYd:m.len*RATES.BALLAST_W*RATES.BALLAST_D/RATES.CU_YD,
+    fabricSqFt:m.len*RATES.FABRIC_W,
+    pipeFt:ew.wall*1.15,
+    wireFt:m.len>0?m.len*0.7+40:0,
+    orderFt:Math.ceil(m.flex*RATES.WASTE)};
+}
+
+/* --- money ---------------------------------------------------------------- */
+function bandAdd(){
+  var lo=0,hi=0;
+  for(var i=0;i<arguments.length;i++){
+    if(!arguments[i])continue;
+    lo+=arguments[i][0];hi+=arguments[i][1];
+  }
+  return [lo,hi];
+}
+function bandScale(b,n){return [b[0]*n,b[1]*n];}
+/* To the nearest ten, as rates.band does - these are ballparks, and a dollar
+   on the end of one reads like a quote. */
+function money(n){
+  var v=Math.round(n/10)*10,out='',s=String(v),i;
+  for(i=0;i<s.length;i++)out+=((s.length-i)%3===0&&i>0?',':'')+s[i];
+  return '$'+out;
+}
+function bandText(b){
+  if(!b)return '—';
+  var lo=money(b[0]),hi=money(b[1]);
+  return lo===hi?lo:lo+'–'+hi;
+}
+function ft1(n){return n.toFixed(1)+' ft';}
+function cuyd(n){return n.toFixed(2)+' cu yd';}
+
+/* --- the phases ----------------------------------------------------------- */
+/* `c` is the whole context: c.main and c.extra are quantities, c.ring says
+   whether there is a mainline ring at all, c.whole is both together. */
+var PHASES=[
+{
+  n:0, title:'Prove the ground', effort:'A weekend · Do not skip this',
+  cost:function(){return RATES.PHASE0;},
+  intro:['Everything downstream is priced off the survey. Check it before you spend.'],
+  tasks:[
+    'Stake A, B, C and D at the plot corners',
+    'Run mason’s line A–C and A–B with a line level; measure down to the '
+      +'ground every 5 ft',
+    'Measure the big oak: distance from the A end, and distance in from the C boundary',
+    'Measure the well across its rim — it is the only assumed figure on the site, '
+      +'and the whole layout is fitted to it',
+    'Measure the stone walls: height, top course width, how level they run',
+    'Lay a garden hose along the proposed line and walk the whole thing'
+  ],
+  materials:function(){return [['Stakes',8],['Mason’s line','100 ft'],
+    ['Line level, 100 ft tape','1 each'],['Marking paint','1 can']];},
+  gate:{head:'The line still fits, and you have walked it.',
+    body:'If the slope comes back under 20° the earthwork gets dramatically '
+      +'cheaper and the layout is worth refitting before anything is ordered. The '
+      +'radius decides the track order, so it has to be settled here.'}
+},
+{
+  n:1, title:'Cut the bench', effort:'3–6 weekends · The hard one',
+  cost:function(c){return bandAdd(bandScale(RATES.PIPE_FT,c.main.pipeFt),
+    bandScale(RATES.FABRIC_SQFT,c.main.fabricSqFt),RATES.BENCH_LABOUR);},
+  intro:['The track is level everywhere. This phase is where that becomes true.',
+    'This and the trestle are 80% of the physical work and none of the fun. '
+      +'Everything enjoyable about this project lives on the far side of moving '
+      +'a lot of dirt.'],
+  tasks:[
+    'Clear leaf litter and duff from a 4 ft corridor the whole way round',
+    'Cut the uphill bench to the depth below',
+    'Hand dig. You are inside the root plate of mature oaks. Cut nothing thicker '
+      +'than 2 in and route around anything bigger — a severed 4 in root can '
+      +'kill a hundred-year tree a decade later',
+    'Dry-lay the uphill retaining wall from site fieldstone',
+    'Perforated pipe in washed gravel behind the wall, daylighted at the low end',
+    'Move the cut spoil downhill, compact in 6 in lifts',
+    'Check level the whole way round with the line level'
+  ],
+  materials:function(c){
+    var q=c.main,r=[];
+    r.push(['In cut',Math.round(q.ew.wall)+' ft of track, up to '+inches(q.ew.cut)+' deep']);
+    r.push(['Soil to cut',cuyd(q.cutCuYd)]);
+    r.push(['Soil to place',cuyd(q.fillCuYd)]);
+    r.push(['Perforated pipe',Math.ceil(q.pipeFt)+' ft']);
+    r.push(['Landscape fabric',Math.ceil(q.fabricSqFt)+' sq ft']);
+    r.push(['Washed gravel, drain',cuyd(q.pipeFt*0.6/RATES.CU_YD)]);
+    r.push(['Wall stone','site fieldstone — free']);
+    return r;
+  },
+  notes:function(c){
+    var q=c.main,out=[];
+    var spare=q.spareCuYd, need=c.extra?c.extra.fillCuYd:0;
+    var body='Of the downhill side, '+Math.round(q.ew.fillMid)+' ft is shallow '
+      +'enough to embank and the deeper '+Math.round(q.ew.fillDeep)+' ft goes on '
+      +'trestle, which consumes no soil. You finish this phase with about '
+      +cuyd(spare)+' spare.';
+    if(need>0.01){
+      body+=' Stockpile it — the yard and siding bench needs '+cuyd(need)
+        +', so it '+(Math.abs(spare-need)<0.25?'very nearly balances':'goes a good '
+        +'way')+' across the whole project. Carting it off now means buying it '
+        +'back later.';
+    } else {
+      body+=' Stockpile it anyway; scenery and levelling will take it.';
+    }
+    out.push({head:'The cut and fill do not balance.',body:body});
+    return out;
+  },
+  gate:{head:'A continuous level bench, checked with a line level, left through '
+      +'one heavy rain.',
+    body:'Watch where the water goes during that rain. Water sheeting down the '
+      +'hillside is the thing most likely to destroy this railway, and the '
+      +'drainage is far easier to fix now than after the roadbed is down.'}
+},
+{
+  n:2, title:'The downhill trestle', effort:'2–3 weekends',
+  skip:function(c){return c.main.bents===0;},
+  cost:function(c){return bandAdd(bandScale(RATES.BENT,c.main.bents),
+    RATES.TRESTLE_SUNDRY);},
+  intro:function(c){
+    var q=c.main;
+    return ['The downhill leg stands up to '+inches(q.ew.fill)+' above grade. Embank '
+      +'the shallower '+Math.round(q.ew.fillMid)+' ft; trestle the '
+      +Math.round(q.ew.fillDeep)+' ft where fill would exceed a foot — '
+      +q.bents+' bent'+(q.bents===1?'':'s')+' at '+RATES.BENT_SPACING+' ft centres.'];
+  },
+  tasks:['Set pier pads wherever fill would exceed about 18 in',
+    'Build and set the bents','Deck it level with the cut bench'],
+  materials:function(c){return [
+    ['Bents',c.main.bents+' at '+RATES.BENT_SPACING+' ft centres'],
+    ['Cedar or PT 2×2 and 2×4','for the bents and deck'],
+    ['Stainless deck screws','—'],
+    ['Gravel','for the pier pads']];},
+  notes:function(){return [{head:'The footing decision.',
+    body:'Concrete below frost depth against floating gravel piers you re-level '
+      +'each spring. Go with floating piers. A garden railway on a hillside moves '
+      +'no matter what you do — frost, settlement, root growth. Concrete makes '
+      +'some of it immovable and the rest moves anyway, which is worse than '
+      +'everything moving together. Re-levelling floating piers is twenty minutes '
+      +'each spring, and it is the same twenty minutes you would spend checking '
+      +'the line regardless.'},
+    {head:'Use stainless.',
+      body:'Galvanized will stain and fail outdoors in under a decade.'}];},
+  gate:{head:'The trestle deck and the cut bench read level to each other, end to end.',
+    body:''}
+},
+{
+  n:3, title:'Roadbed and the main line', effort:'2–4 weekends · Track money starts here',
+  cost:function(c){return bandAdd(bandScale(RATES.FLEX_FT,c.main.flat.orderFt),
+    bandScale(RATES.CLAMP,c.main.flat.clamps),RATES.STONE);},
+  intro:[],
+  tasks:['Landscape fabric, then 2–3 in of crushed stone screeded level',
+    'Lay the main line. No turnouts yet',
+    'Rail clamps on every joint, both rails, as you go',
+    'Push a free-rolling car round the whole lap by hand'],
+  materials:function(c){
+    var q=c.main;
+    return [['Code 332 brass flex',q.flat.orderFt+' ft  ('+ft1(q.len)+' plus '
+        +Math.round((RATES.WASTE-1)*100)+'% waste)'],
+      ['In '+FLEX_LEN+' ft lengths',q.flat.lengths],['Joints',q.flat.joints],
+      ['Rail clamps',q.flat.clamps+'  (two per joint, both rails)'],
+      ['Ballast, ½ in minus',cuyd(q.ballastCuYd)],
+      ['Crushed stone to order',Math.ceil(q.ballastCuYd+q.pipeFt*0.6/RATES.CU_YD+1)
+        +' cu yd  (covers the drainage too)'],
+      ['Landscape fabric',Math.ceil(q.fabricSqFt)+' sq ft']];
+  },
+  notes:function(c){return [{head:'Buy flex track, not sectional.',
+    body:FLEX_LEN+' ft flex sections give you about '+c.main.flat.joints+' joints on '
+      +'this line. Sectional track in 1–2 ft pieces gives several times that. '
+      +'Every joint is a future electrical failure and a future derailment, and '
+      +'each one needs two clamps. Flex is cheaper by the time you have bought the '
+      +'clamps, and far more reliable. It also lets you bend the exact radius '
+      +'rather than taking whatever the manufacturer decided.'}];},
+  gate:{head:'A free-rolling car makes a full lap pushed by hand, with no binding '
+      +'anywhere.',
+    body:'If it binds now it will derail under power. Fix it here, while nothing '
+      +'is ballasted in and everything is still adjustable.'}
+},
+{
+  n:4, title:'Power', effort:'A weekend',
+  cost:function(){return RATES.POWER;},
+  intro:[],
+  tasks:['Trench the bus in conduit along the roadbed shoulder',
+    'Feeder drops soldered to the rail web — not clipped, not screwed',
+    'Supply and controller at the A end, nearest the house',
+    'Measure voltage at the farthest point from the feed'],
+  materials:function(c){return [['Feeder drops',c.main.m.feeders],
+    ['12 AWG direct-burial wire',Math.ceil(c.main.wireFt)+' ft'],
+    ['Conduit','along the shoulder'],
+    ['Supply and controller','24 V / 10 A']];},
+  gate:{head:'A full lap under power, both directions, at crawl speed.',
+    body:'Crawl speed is the honest test. Anything will coast through a dirty '
+      +'joint at speed; only a slow train finds them. Voltage at the far point '
+      +'should be within about 1 V of the supply.'}
+},
+{
+  n:5, title:'One winter', effort:'The most valuable phase in the plan',
+  cost:function(){return [0,0];},
+  intro:['Run it. Watch what the hill does through a freeze-thaw cycle and a full '
+      +'leaf fall. Re-level in spring.',
+    'Do not build scenery into ground that has not moved yet. You will learn more '
+      +'about this site in one winter than in any amount of planning, and '
+      +'everything you build before that winter is something you may have to tear '
+      +'out after it.'],
+  tasks:[],
+  materials:function(){return [];},
+  gate:{head:'One winter survived, line re-levelled in spring.',body:''}
+},
+{
+  n:6, title:'Sidings and yard', effort:'3–4 weekends',
+  skip:function(c){return !c.extra||c.extra.len<=0;},
+  cost:function(c){
+    var q=c.extra;
+    return bandAdd(bandScale(RATES.FLEX_FT,q.orderFt),
+      bandScale(RATES.TURNOUT,q.m.turnouts+c.main.m.turnouts),
+      bandScale(RATES.CLAMP,q.m.clamps),RATES.YARD_SUNDRY);
+  },
+  intro:function(c){
+    var q=c.extra;
+    return ['Now the switching. This is drawn, not guessed — it is already in '
+      +'the layout: '+ft1(q.len)+' of track off the main line, on '
+      +(q.m.turnouts+c.main.m.turnouts)+' turnout'
+      +((q.m.turnouts+c.main.m.turnouts)===1?'':'s')+'.'];
+  },
+  tasks:['Buy and place the turnouts first. They set the geometry everything else '
+      +'must meet; the connecting track is cut to fit them, never the reverse',
+    'Build the bench, filled to the depth below, compacted in 6 in lifts. This is '
+      +'compacted earth, not trestle, even where it is deeper than a foot — it '
+      +'is a flat area you walk on and reach over',
+    'Lay the lead, then the tracks off it',
+    'Clamps throughout, and a further feeder drop on the new work',
+    'Feed a siding from the main at both ends — a dead siding is where trains stall'],
+  materials:function(c){
+    var q=c.extra;
+    return [['Code 332 brass flex',q.orderFt+' ft  ('+ft1(q.m.flex)+' plus waste)'],
+      ['In '+FLEX_LEN+' ft lengths',q.m.lengths],['Joints',q.m.joints],
+      ['Turnouts, R54 / #6 or wider',q.m.turnouts+c.main.m.turnouts],
+      ['Rail clamps',q.m.clamps],
+      ['Bench fill',cuyd(q.fillCuYd)],
+      ['Further feeder drops',q.m.feeders],
+      ['Ballast and fabric',cuyd(q.ballastCuYd)+', '+Math.ceil(q.fabricSqFt)+' sq ft']];
+  },
+  notes:function(c){
+    var out=[{head:'Turnouts are the money here.',
+      body:'They are '+bandText(bandScale(RATES.TURNOUT,
+        c.extra.m.turnouts+c.main.m.turnouts))+' of this phase, which makes them '
+        +'the best thing on the whole railway to buy used. Brass is close to '
+        +'indestructible and cosmetic tarnish makes no difference to conduction '
+        +'once clamped.'}];
+    if(c.main.m.turnouts>0)out.push({head:'One consequence to buy for.',
+      body:'A turnout on the main line means main-line running leaves it in one '
+        +'fixed position. Buy one whose points hold there without being held '
+        +'— sprung or motorised, biased to the main — rather than a light '
+        +'manual stand.'});
+    return out;
+  },
+  gate:{head:'You can run a train round the main line while switching the yard.',
+    body:'That is the layout doing both jobs at once, which is what it was drawn for.'}
+},
+{
+  n:7, title:'Scenery', effort:'Forever · Whatever you like',
+  cost:function(){return null;},
+  intro:['Structures, plantings, the log landing at the D end. Dwarf conifers for '
+      +'scale — anything that stays under about 18 in reads as a full-size tree '
+      +'beside G scale stock.',
+    'This phase never finishes and is not supposed to.'],
+  tasks:[],
+  materials:function(){return [];},
+  gate:{head:'',body:''}
+}
+];
+
+/* Everything a build document needs, for the layout on screen. */
+function buildContext(){
+  var sp=phaseSplit();
+  var y0=planeOf(pieces);
+  var oe=openEnds().length;
+  var c={ring:sp.ring,
+         main:qtyFor(sp.main,y0,sp.ring?0:oe),
+         extra:sp.extra.length?qtyFor(sp.extra,y0,oe):null,
+         whole:qtyFor(pieces,y0,oe),
+         plane:y0,openEnds:oe,
+         lap:(circuit&&circuit.loop)?circuit.len:0};
+  c.phases=[];
+  PHASES.forEach(function(ph){
+    if(ph.skip&&ph.skip(c))return;
+    c.phases.push({
+      n:ph.n, title:ph.title, effort:ph.effort,
+      cost:ph.cost?ph.cost(c):null,
+      intro:typeof ph.intro==='function'?ph.intro(c):(ph.intro||[]),
+      tasks:ph.tasks||[],
+      materials:ph.materials?ph.materials(c):[],
+      notes:ph.notes?ph.notes(c):[],
+      gate:ph.gate
+    });
+  });
+  var run=[0,0],all=[0,0];
+  c.phases.forEach(function(p){
+    if(!p.cost)return;
+    all=bandAdd(all,p.cost);
+    if(p.n<=4)run=bandAdd(run,p.cost);
+  });
+  c.runningCost=run; c.totalCost=all;
+  return c;
+}
+
+
+/* ===================== STOCK, AND WHAT YOU ALREADY HAVE ===================
+   The catalogue the phases consume. Each phase says what it takes OFF this
+   list, in units you can count in a shed, so the shortfall report is the
+   requirement minus the inventory and nothing softer than that.
+
+   Kept apart from the phases' own materials tables, which are written to be
+   read: those carry prose like "site fieldstone - free", and you cannot
+   subtract that from anything. */
+var STOCK=[
+  {k:'flex',    n:'Code 332 brass flex',     u:'ft',     buy:'order in '+FLEX_LEN+' ft lengths'},
+  {k:'turnout', n:'Turnouts, R54 / #6 or wider', u:'',   buy:'the best thing here to buy used'},
+  {k:'clamp',   n:'Rail clamps',             u:'',       buy:'two per joint, both rails'},
+  {k:'stone',   n:'Crushed stone',           u:'cu yd',  buy:'½ in minus; one load covers ballast and drainage'},
+  {k:'fabric',  n:'Landscape fabric',        u:'sq ft',  buy:''},
+  {k:'pipe',    n:'Perforated drain pipe',   u:'ft',     buy:''},
+  {k:'bent',    n:'Trestle bents',           u:'',       buy:'cedar or PT 2×2 and 2×4'},
+  {k:'screws',  n:'Stainless deck screws',   u:'boxes',  u1:'box',
+   buy:'stainless only — galvanized fails outdoors'},
+  {k:'wire',    n:'12 AWG direct-burial wire', u:'ft',   buy:''},
+  {k:'conduit', n:'Conduit',                 u:'ft',     buy:''},
+  {k:'supply',  n:'Supply and controller',   u:'',       buy:'24 V / 10 A'},
+  {k:'stake',   n:'Survey stakes',           u:'',       buy:''},
+  {k:'mline',   n:'Mason’s line',       u:'ft',     buy:'with a line level'},
+  {k:'paint',   n:'Marking paint',           u:'cans',   u1:'can', buy:''}
+];
+var STOCK_BY={};
+STOCK.forEach(function(it){STOCK_BY[it.k]=it;});
+/* "1 cans" reads like a typo. */
+function stockUnit(it,n){
+  if(!it.u)return '';
+  return ' '+(n===1&&it.u1?it.u1:it.u);
+}
+
+/* What each phase takes off the catalogue. Same numbers as its materials
+   table, in countable units. */
+var PHASE_STOCK={
+  0:function(){return [['stake',8],['mline',100],['paint',1]];},
+  1:function(c){return [['pipe',Math.ceil(c.main.pipeFt)],
+      ['fabric',Math.ceil(c.main.fabricSqFt)],
+      ['stone',Math.ceil(c.main.pipeFt*0.6/RATES.CU_YD)]];},
+  2:function(c){return c.main.bents?[['bent',c.main.bents],['screws',1]]:[];},
+  3:function(c){return [['flex',c.main.flat.orderFt],['clamp',c.main.flat.clamps],
+      ['stone',Math.ceil(c.main.ballastCuYd+1)]];},
+  4:function(c){return [['wire',Math.ceil(c.main.wireFt)],
+      ['conduit',Math.ceil(c.main.wireFt*0.6)],['supply',1]];},
+  5:function(){return [];},
+  6:function(c){
+      if(!c.extra)return [];
+      return [['flex',c.extra.orderFt],
+        ['turnout',c.extra.m.turnouts+c.main.m.turnouts],
+        ['clamp',c.extra.m.clamps],
+        ['stone',Math.ceil(c.extra.ballastCuYd+1)],
+        ['fabric',Math.ceil(c.extra.fabricSqFt)]];
+    },
+  7:function(){return [];}
+};
+
+/* Requirement by phase, and the running shortfall as you work down the plan:
+   stock is consumed by the earliest phase that wants it, so phase 6 is not
+   told it already has the flex that phase 3 will have used. */
+function shortfall(c,inv){
+  inv=inv||{};
+  var left={},out=[],grand={};
+  STOCK.forEach(function(it){left[it.k]=+inv[it.k]||0;});
+  c.phases.forEach(function(ph){
+    var want=(PHASE_STOCK[ph.n]||function(){return [];})(c);
+    var rows=[];
+    want.forEach(function(w){
+      var k=w[0],need=w[1];
+      if(!need)return;
+      var have=Math.min(left[k]||0,need);
+      left[k]=(left[k]||0)-have;
+      grand[k]=(grand[k]||0)+need;
+      rows.push({k:k,need:need,have:have,buy:need-have});
+    });
+    out.push({n:ph.n,title:ph.title,rows:rows});
+  });
+  return {phases:out,total:grand,spare:left};
+}
+
+/* ===================== WRITING THE BUILD DOCUMENT ========================= */
+
+/* Run `fn` with another layout loaded, then put back what was on screen.
+   The whole model reads the globals, so this is how a saved layout is costed
+   without the plan flickering over to it and back. */
+function withLayout(rec,fn){
+  var keep=serialize(),keepId=nextId,keepSel=sel;
+  try{
+    if(!deserialize(rec.pieces))throw new Error('the pieces list is missing or empty');
+    recompute();
+    return fn();
+  } finally {
+    deserialize(keep);nextId=keepId;sel=keepSel;recompute();
+  }
+}
+
+function docDate(){
+  var d=new Date(),M=['January','February','March','April','May','June','July',
+    'August','September','October','November','December'];
+  return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
+}
+
+function buildPdf(title){
+  var c=buildContext(),inv=INVENTORY||{},sf=shortfall(c,inv);
+  var d=new PDF.Doc({footer:'Garden Railway — '+title});
+
+  /* ---- the head ---------------------------------------------------- */
+  d.h1(title);
+  d.para('Staged build plan, generated from this layout on '+docDate()
+    +'. G scale, 45 mm gauge, on a wooded south-facing slope: 45 ft long, '
+    +'7.3–14.8 ft wide, 17–20° of cross-slope, level-bench design.',
+    {size:9.2,grey:0.35});
+  d.plan(168);
+
+  d.h3('The layout as drawn');
+  var rows=[['Track laid',ft1(c.whole.len)+'  ('+pieces.length+' pieces)']];
+  if(c.ring)rows.push(['Main line, closed ring',ft1(c.main.len)
+    +'  — lap '+Math.round(lapSeconds(c.lap))+' s at 1:'+SPEED_SCALE]);
+  else rows.push(['Main line','no closed ring — '+c.openEnds+' open end'
+    +(c.openEnds===1?'':'s')]);
+  if(c.extra)rows.push(['Sidings and yard',ft1(c.extra.len)]);
+  rows.push(['Turnouts',c.whole.m.turnouts]);
+  rows.push(['Track plane',(c.plane>=0?'+':'')+c.plane.toFixed(2)+' ft against the Main line']);
+  rows.push(['Deepest cut / highest fill',inches(c.whole.ew.cut)+' / '+inches(c.whole.ew.fill)]);
+  var cl=clearances(),tight=null;
+  cl.forEach(function(q){if(!tight||q.gap<tight.gap)tight=q;});
+  if(tight&&isFinite(tight.gap))
+    rows.push(['Nearest obstacle',clearText(tight.gap)+' to the '+tight.o.n]);
+  var room=boundaryRoom();
+  if(isFinite(room))rows.push(['Boundary margin',clearText(room)]);
+  d.rows(rows);
+
+  d.h3('Budget');
+  var brows=[];
+  c.phases.forEach(function(p){
+    brows.push(['Phase '+p.n+' — '+p.title,p.cost?bandText(p.cost):'whatever you like']);
+  });
+  d.rows(brows);
+  d.rows([['Running trains (phases 0–4)',bandText(c.runningCost)],
+          ['Everything costed',bandText(c.totalCost)]]);
+  d.para('Ballpark US retail. G scale brass moves with the metal price, so check '
+    +'before ordering — and buy used where you can, which is most of the '
+    +'budget. Brass is close to indestructible: cosmetic tarnish polishes off and '
+    +'makes no difference to conduction once clamped.',{size:9,grey:0.35});
+
+  /* ---- what the app is unhappy about -------------------------------- */
+  var flags=[];
+  if(!c.ring)flags.push(['No closed ring.','The lap figures and the phase split '
+    +'both assume a main line that comes back to itself. Everything below treats '
+    +'the whole layout as one line.']);
+  if(isFinite(room)&&room<TOLERANCE)flags.push(['Boundary margin is '
+    +clearText(room)+'.','Inside survey accuracy, so this is not a real pass.']);
+  if(tight&&isFinite(tight.gap)&&tight.gap<MARGIN)flags.push(['Only '
+    +clearText(tight.gap)+' from the '+tight.o.n+'.',
+    tight.gap<TOLERANCE?'Inside survey accuracy, so this is not a real pass.'
+      :'The '+Math.round(MARGIN*12)+' in threshold is a comfort margin rather '
+      +'than a clearance limit, but it is the tightest thing on the layout.']);
+  if(flags.length){
+    d.h3('Before you order anything');
+    flags.forEach(function(f){d.note(f[0],f[1]);});
+    d.note('The well is assumed, not measured.','Its 3 ft diameter is a guess, '
+      +'and the layout is fitted to it. Measure it before you order track — '
+      +'it is a five-minute job and it is the only thing standing under the '
+      +'design.');
+  }
+
+  /* ---- the phases ---------------------------------------------------- */
+  c.phases.forEach(function(p){
+    d.h2('Phase '+p.n+' — '+p.title,p.cost?bandText(p.cost):'');
+    if(p.effort)d.para(p.effort,{size:9,grey:0.42});
+    (p.intro||[]).forEach(function(t){d.para(t);});
+    if(p.tasks&&p.tasks.length){d.h3('Tasks');d.bullets(p.tasks);}
+    if(p.materials&&p.materials.length){d.h3('Materials — measured');d.rows(p.materials);}
+    (p.notes||[]).forEach(function(nt){d.note(nt.head,nt.body);});
+    if(p.gate&&p.gate.head){
+      d.h3(p.n>=4&&p.n!==6?'Gate — you are done when':'Gate — do not proceed until');
+      d.para(p.gate.head,{bold:true});
+      if(p.gate.body)d.para(p.gate.body);
+    }
+  });
+
+  /* ---- the shopping ---------------------------------------------------- */
+  d.h2('What to buy','against your inventory');
+  var anyInv=false;
+  STOCK.forEach(function(it){if(+inv[it.k]>0)anyInv=true;});
+  d.para(anyInv
+    ? 'Your inventory is subtracted phase by phase, earliest first, so a later '
+      +'phase is not told it already has something an earlier one will have used.'
+    : 'Nothing is recorded in the inventory, so this is the full requirement. '
+      +'Fill the inventory in on the Figures panel and re-generate this to see '
+      +'only what is missing.',{size:9.2,grey:0.35});
+
+  sf.phases.forEach(function(ph){
+    if(!ph.rows.length)return;
+    var any=false;
+    ph.rows.forEach(function(r){if(r.buy>0)any=true;});
+    d.h3('Phase '+ph.n+' — '+ph.title+(any?'':'  (you have it all)'));
+    d.rows(ph.rows.map(function(r){
+      var it=STOCK_BY[r.k],u=stockUnit(it,r.buy);
+      var v=r.buy>0?('buy '+r.buy+u):('have it');
+      if(r.have>0&&r.buy>0)v='need '+r.need+stockUnit(it,r.need)+', have '
+        +r.have+' — buy '+r.buy+u;
+      else if(r.buy>0)v='buy '+r.buy+u;
+      return [it.n,v];
+    }));
+  });
+
+  var spare=[];
+  STOCK.forEach(function(it){
+    if((sf.spare[it.k]||0)>0)
+      spare.push([it.n,sf.spare[it.k]+stockUnit(it,sf.spare[it.k])]);
+  });
+  if(spare.length){
+    d.h3('Left over when the railway is finished');
+    d.rows(spare);
+  }
+
+  d.h3('If money is tight');
+  d.para('Cut the yard, not the bench. A beautifully built oval beats a '
+    +'sprawling layout on a bench that was not cut properly — the earthwork '
+    +'is the part you cannot redo later without lifting everything on top of it.');
+  d.note('Never cut:','rail clamps, the drainage behind the retaining wall, or '
+    +'the free-rolling car test at the end of Phase 3. Each of those is cheap '
+    +'now and brutally expensive to retrofit.');
+  d.note('The thing that will actually cause trouble is the oak leaves.',
+    'Leaves on railhead means a stalling train, which is why the downhill leg is '
+    +'raised and why that is worth the trestle work rather than filling it solid. '
+    +'Track two feet up stays markedly cleaner than track at grade. Plan on a '
+    +'track-cleaning car from the start, and a real clearing session every '
+    +'November for the life of the railway.');
+
+  return d.bytes();
+}
+
+function downloadPdf(name,bytes){
+  var url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+  var a=document.createElement('a');
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},0);
+}
+function buildFileName(title){
+  return (slugName(title)||'layout')+'-build-plan.pdf';
+}
+/* The current layout, or a saved one without disturbing the screen. */
+function createBuild(title,rec){
+  try{
+    var bytes=rec?withLayout(rec,function(){return buildPdf(title);})
+                 :buildPdf(title);
+    downloadPdf(buildFileName(title),bytes);
+    note('Build plan for “'+title+'” written to your downloads.');
+  } catch(e){
+    note('Could not write the build plan: '+(e&&e.message?e.message:e));
+  }
+}
+
+function updateUI(){
+  circuit=buildCircuit();
+  var minR=Infinity;
+  pieces.forEach(function(p){
+    var d=CAT[p.def];p._bad=false;
+    if(d.k!=='s')minR=Math.min(minR,d.r);
+  });
+  var ew=earthworks();
+  trackY=ew.plane;
+  var cl=clearances(), room=boundaryRoom();
+  var tight=null;
+  cl.forEach(function(c){if(!tight||c.gap<tight.gap)tight=c;});
+
+  /* mark the pieces at fault, so the plan view can show them */
+  pieces.forEach(function(p){
+    var shapes=routeShapes(p);
+    shapes.forEach(function(s){
+      shapePoints(s).forEach(function(q){
+        if(q[0]<X0+0.3||q[0]>X1-0.3||q[1]>nz(q[0])-EDGE||q[1]<sz(q[0])+EDGE)p._bad=true;
+      });
+      OBST.forEach(function(o){
+        if(shapeDist(o.x,o.z,s)-o.d/2-HALF<0)p._bad=true;
+      });
+    });
+  });
+
+  var total=0;pieces.forEach(function(p){total+=pieceLen(p);});
+  var oe=openEnds().length, m=materials(total,oe);
+  $('k-len').textContent=total.toFixed(1);
+  $('k-pcs').textContent=pieces.length;
+  $('r-open').textContent=oe;
+  $('r-turn').textContent=m.turnouts;
+  $('r-rad').textContent=isFinite(minR)?minR.toFixed(2)+' / '+(minR*2).toFixed(1)+' dia':'—';
+  $('r-circ').textContent=!pieces.length?'empty':(circuit&&circuit.loop?'closed loop':'open ends');
+  $('r-lap').textContent=circuit&&circuit.loop?circuit.len.toFixed(1)+' ft':'—';
+  $('r-time').textContent=circuit&&circuit.loop
+    ?Math.round(lapSeconds(circuit.len))+' s @ 1:'+SPEED_SCALE:'—';
+  $('r-cut').textContent=pieces.length?inches(ew.cut):'—';
+  $('r-fill').textContent=pieces.length?inches(ew.fill):'—';
+  $('r-wall').textContent=Math.round(ew.wall)+' ft';
+  $('r-emb').textContent=Math.round(ew.fillMid)+' ft';
+  $('r-tres').textContent=Math.round(ew.fillDeep)+' ft';
+  $('r-tres').title=ew.fillDeep>0
+    ?'Trestle it and that is about '+Math.max(1,Math.round(ew.fillDeep/3))
+      +' bents at 3 ft centres. Bench it instead and it is compacted fill — '
+      +'the plan trestles the downhill leg and benches the yard.'
+    :'';
+  $('r-plane').textContent=(trackY>=0?'+':'')+trackY.toFixed(2)+' ft';
+  $('r-clear').textContent=tight&&isFinite(tight.gap)
+    ?clearText(tight.gap)+' ('+tight.o.n+')':'—';
+  $('r-bdy').textContent=pieces.length&&isFinite(room)?clearText(room):'—';
+
+  var f=[];
+  if(!pieces.length)f.push(['warn','Nothing laid. Load a preset or drag a piece.']);
+  else{
+    if(circuit&&circuit.loop)f.push(['ok','Closed circuit — a train can run continuously.']);
+    else f.push(['warn',oe+' open end'+(oe===1?'':'s')+'.']);
+    if(room<0)f.push(['bad','Track crosses the boundary.']);
+    else if(room<TOLERANCE)f.push(['warn','Boundary margin is '+(room*12).toFixed(2)
+      +' in — inside survey accuracy, so this is not a real pass.']);
+    if(tight&&isFinite(tight.gap)){
+      if(tight.gap<0)f.push(['bad','Track runs through the '+tight.o.n+'.']);
+      else if(tight.gap<TOLERANCE)f.push(['warn','Only '+(tight.gap*12).toFixed(2)+' in from the '
+        +tight.o.n+' — inside survey accuracy, so this is not a real pass.']);
+      else if(tight.gap<MARGIN)f.push(['warn','Only '+Math.round(tight.gap*12)+' in from the '
+        +tight.o.n+'.']);
+    }
+    if(isFinite(minR)&&minR<2.5)f.push(['warn','R'+Math.round(minR*12)+' is tight for G scale.']);
+  }
+  $('flags').innerHTML=f.map(function(x){
+    return '<div class="flag '+x[0]+'">'+esc(x[1])+'</div>';}).join('');
+
+  var rows='';
+  if(total>0){
+    rows+='<dt>Code 332 flex</dt><dd>'+Math.ceil(m.flex*1.08)+' ft</dd>';
+    rows+='<dt title="'+m.flex.toFixed(1)+' ft of flex in '+FLEX_LEN+' ft lengths">'
+      +'&nbsp;&nbsp;in 5 ft lengths</dt><dd>'+m.lengths+'</dd>';
+    if(m.turnouts)rows+='<dt>Turnouts (R54)</dt><dd>'+m.turnouts+'</dd>';
+    rows+='<dt>Joints</dt><dd>'+m.joints+'</dd>';
+    rows+='<dt>Rail clamps</dt><dd>'+m.clamps+'</dd>';
+    rows+='<dt>Feeder drops</dt><dd>'+m.feeders+'</dd>';
+  }
+  $('bom').innerHTML=rows||'<dt>—</dt><dd>&nbsp;</dd>';
+  renderShortfall();
+  TERR=null;              // layout changed -> recarve on next 3D frame
+  redraw();
+}
+function redraw(){draw2();draw3();syncSelBar();}
+
+/* ============================ INTERACTION (2D) ============================ */
+function exitDelta(def,a,hand){
+  var d=CAT[def];
+  if(d.k!=='c')return [d.len*Math.cos(a),d.len*Math.sin(a),a];
+  var g=curveEnd(0,0,a,d.r,d.deg,hand);return [g.x,g.y,g.a];
+}
+function snapFor(def,hand,x,y){
+  var best=null;
+  openEnds().forEach(function(e){
+    var d1=Math.hypot(x-e.x,y-e.y);
+    if(d1<1.3&&(!best||d1<best.d))best={d:d1,x:e.x,y:e.y,a:e.a};
+    var dd=exitDelta(def,0,hand),ah=e.a+Math.PI-dd[2],dl=exitDelta(def,ah,hand);
+    var px=e.x-dl[0],py=e.y-dl[1],d2=Math.hypot(x-px,y-py);
+    if(d2<1.3&&(!best||d2<best.d))best={d:d2,x:px,y:py,a:ah};
+  });
+  return best;
+}
+function hitPiece(wx,wy){
+  for(var i=pieces.length-1;i>=0;i--){
+    var p=pieces[i],d=CAT[p.def],rs=[routePts(p,'out')];
+    if(d.k==='t')rs.push(routePts(p,'div'));
+    for(var r=0;r<rs.length;r++)for(var k=0;k<rs[r].length;k++)
+      if(Math.hypot(rs[r][k][0]-wx,rs[r][k][1]-wy)<0.55)return p;
+  }
+  return null;
+}
+function hitEnd(wx,wy){var b=null,bd=0.7;
+  openEnds().forEach(function(e){var d=Math.hypot(e.x-wx,e.y-wy);if(d<bd){bd=d;b=e;}});
+  return b;}
+function hint2(t){$('hint2').textContent=t||' ';}
+function selectPiece(p){sel=p;redraw();}
+var lastAngle=0,lastHand=1;
+function onMove(ev){
+  if(!drag)return;
+  var r=c2.getBoundingClientRect();
+  var wx=WX(ev.clientX-r.left),wy=WY(ev.clientY-r.top);
+  var g=drag.ghost||drag.piece;
+  if(drag.fromPalette){g.x=wx;g.y=wy;}
+  else {g.x=wx-drag.dx;g.y=wy-drag.dy;}
+  var sn=snapFor(g.def,g.hand,g.x,g.y);
+  if(sn){g.x=sn.x;g.y=sn.y;g.a=sn.a;}
+  redraw();
+}
+function onUp(ev){
+  window.removeEventListener('pointermove',onMove);
+  if(drag&&drag.fromPalette){
+    var g=drag.ghost,r=c2.getBoundingClientRect();
+    if(ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom&&g.x>-50){
+      var p=addPiece(g.def,g.x,g.y,g.a,g.hand);lastAngle=g.a;drag=null;recompute();selectPiece(p);
+      var ne=EPS.filter(function(e){return e.p===p&&!e.link&&e.k!=='in';})[0];
+      activeEnd=ne||null;hint2('Placed.');return;
+    }
+  }
+  drag=null;recompute();
+}
+function startPaletteDrag(key,ev){
+  ev.preventDefault();
+  if(activeEnd){
+    var p=addPiece(key,activeEnd.x,activeEnd.y,activeEnd.a,lastHand);
+    recompute();
+    var ne=EPS.filter(function(e){return e.p===p&&!e.link&&e.k!=='in';})[0];
+    activeEnd=ne||null;selectPiece(p);hint2('Appended.');closeDrawers();return;
+  }
+  if(TOUCH){
+    /* The palette is a slide-over drawer on a narrow screen, so it sits on top
+       of the plan and there is nothing to drag onto. Drop the piece in the
+       middle of the view instead; it can be dragged from there. */
+    var r=c2.getBoundingClientRect();
+    var q=addPiece(key,WX(r.width/2),WY(r.height/2),lastAngle,lastHand);
+    recompute();selectPiece(q);closeDrawers();
+    hint2('Placed in the middle \u2014 drag it where you want it.');return;
+  }
+  drag={fromPalette:true,ghost:{def:key,x:-99,y:-99,a:lastAngle,hand:lastHand,thrown:false}};
+  hint2('Drop on the plan; release near an open end to snap.');
+  window.addEventListener('pointermove',onMove);
+  window.addEventListener('pointerup',onUp,{once:true});
+}
+/* Pointer bookkeeping for the plan. One finger drags a piece, or pans when it
+   lands on bare ground; two pinch to zoom and pan together. The desktop wheel
+   zoom is untouched - this is what replaces it where there is no wheel. */
+var P2={},pinch2=null,pan2=null;
+function nPts(m){var n=0;for(var k in m)n++;return n;}
+function midPt(m){var x=0,y=0,n=0;for(var k in m){x+=m[k].x;y+=m[k].y;n++;}
+  return n?{x:x/n,y:y/n}:{x:0,y:0};}
+function spread(m){var a=[];for(var k in m)a.push(m[k]);
+  return a.length<2?0:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);}
+
+c2.addEventListener('pointerdown',function(ev){
+  var r=c2.getBoundingClientRect();
+  P2[ev.pointerId]={x:ev.clientX,y:ev.clientY};
+  if(nPts(P2)===2){
+    /* A second finger turns whatever was happening into a pinch. */
+    drag=null;pan2=null;window.removeEventListener('pointermove',onMove);
+    var m=midPt(P2);
+    pinch2={d:spread(P2),s:V.s,wx:WX(m.x-r.left),wy:WY(m.y-r.top)};
+    hint2('Pinch to zoom.');redraw();return;
+  }
+  if(nPts(P2)>2)return;
+  var wx=WX(ev.clientX-r.left),wy=WY(ev.clientY-r.top);
+  var e=hitEnd(wx,wy);
+  if(e){activeEnd=(activeEnd&&activeEnd.p===e.p&&activeEnd.k===e.k)?null:e;
+    hint2(activeEnd?'Open end selected — click a piece to append.':'');redraw();return;}
+  var p=hitPiece(wx,wy);
+  if(p){
+    if(CAT[p.def].k==='t'&&ev.detail===2){p.thrown=!p.thrown;recompute();return;}
+    selectPiece(p);activeEnd=null;
+    drag={piece:p,dx:wx-p.x,dy:wy-p.y};
+    window.addEventListener('pointermove',onMove);
+    window.addEventListener('pointerup',onUp,{once:true});
+    hint2('Drag to move · the buttons below rotate, flip and remove it');
+  } else {
+    selectPiece(null);activeEnd=null;
+    /* Bare ground: pan. There was no way to pan at all before - the wheel
+       zoomed at the cursor and Fit started over. */
+    pan2={x:ev.clientX,y:ev.clientY,ox:V.ox,oy:V.oy};
+    hint2(TOUCH?'Drag to pan \u00b7 pinch to zoom':'Drag to pan \u00b7 wheel to zoom');
+  }
+});
+c2.addEventListener('pointermove',function(ev){
+  if(!P2[ev.pointerId])return;
+  P2[ev.pointerId]={x:ev.clientX,y:ev.clientY};
+  var r=c2.getBoundingClientRect();
+  if(pinch2&&nPts(P2)>=2){
+    var d=spread(P2);
+    if(!d||!pinch2.d)return;
+    V.s=Math.max(5,Math.min(90,pinch2.s*(d/pinch2.d)));
+    var m=midPt(P2);
+    V.ox=(m.x-r.left)-pinch2.wx*V.s;V.oy=(m.y-r.top)+pinch2.wy*V.s;
+    redraw();return;
+  }
+  if(pan2&&!drag){
+    V.ox=pan2.ox+(ev.clientX-pan2.x);V.oy=pan2.oy+(ev.clientY-pan2.y);redraw();
+  }
+});
+/* On window, not on the canvas: a finger or mouse released outside the plan
+   must still end the gesture, or the next move would jump. */
+['pointerup','pointercancel'].forEach(function(k){
+  window.addEventListener(k,function(ev){
+    delete P2[ev.pointerId];
+    if(nPts(P2)<2)pinch2=null;
+    if(!nPts(P2))pan2=null;
+    delete P3[ev.pointerId];
+    if(nPts(P3)<2)pinch3=null;
+  });
+});
+c2.addEventListener('wheel',function(ev){
+  ev.preventDefault();
+  var r=c2.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top;
+  var wx=WX(mx),wy=WY(my);
+  V.s*=ev.deltaY<0?1.1:0.9;V.s=Math.max(5,Math.min(90,V.s));
+  V.ox=mx-wx*V.s;V.oy=my+wy*V.s;redraw();
+},{passive:false});
+
+/* orbit in 3D */
+var d3drag=null;
+c3.addEventListener('pointerdown',function(ev){d3drag={x:ev.clientX,y:ev.clientY};c3.setPointerCapture(ev.pointerId);});
+/* Pinch stands in for the wheel: apart steps closer, together steps back. */
+var P3={},pinch3=null;
+c3.addEventListener('pointerdown',function(ev){
+  P3[ev.pointerId]={x:ev.clientX,y:ev.clientY};
+  if(nPts(P3)===2){d3drag=null;pinch3={d:spread(P3),z:C3.zoom};}
+});
+c3.addEventListener('pointermove',function(ev){
+  if(!P3[ev.pointerId])return;
+  P3[ev.pointerId]={x:ev.clientX,y:ev.clientY};
+  if(pinch3&&nPts(P3)>=2){
+    var d=spread(P3);
+    if(!d||!pinch3.d)return;
+    C3.zoom=Math.max(0.25,Math.min(2.4,pinch3.z*(pinch3.d/d)));draw3();
+  }
+});
+c3.addEventListener('pointermove',function(ev){
+  if(!d3drag)return;
+  C3.th-=(ev.clientX-d3drag.x)*0.007;
+  C3.ph=Math.max(PH_MIN,Math.min(PH_MAX,C3.ph-(ev.clientY-d3drag.y)*0.007));
+  d3drag={x:ev.clientX,y:ev.clientY};markTilt();draw3();
+});
+['pointerup','pointercancel','pointerleave'].forEach(function(k){
+  c3.addEventListener(k,function(){d3drag=null;});});
+c3.addEventListener('wheel',function(ev){
+  ev.preventDefault();C3.zoom=Math.max(0.25,Math.min(2.4,C3.zoom*(ev.deltaY<0?0.9:1.1)));draw3();
+},{passive:false});
+
+/* Tilt presets. Orbiting by drag alone is easy to get lost in - these are the
+   four angles worth looking at, plus straight down for checking clearances. */
+function markTilt(){
+  var bs=document.querySelectorAll('#tilt button');
+  for(var i=0;i<bs.length;i++){
+    if(bs[i].getAttribute('data-pano')){bs[i].classList.toggle('on',PANO);continue;}
+    bs[i].classList.toggle('on',!PANO&&
+      Math.abs(parseFloat(bs[i].getAttribute('data-ph'))-C3.ph)<0.05);
+  }
+  $('hint3').textContent=PANO
+    ? 'Panorama — 140° from where you would stand. Drag sideways to walk '+
+      'round, up and down to look up and down, wheel to step back.'
+    : 'Scenery is drawn from the site photos — only the oak, birdbath and '+
+      'well are surveyed.';
+}
+document.getElementById('tilt').addEventListener('click',function(ev){
+  var b=ev.target;while(b&&b.tagName!=='BUTTON')b=b.parentNode;
+  if(!b)return;
+  if(b.getAttribute('data-pano')){
+    PANO=!PANO;
+    if(PANO){C3.th=-0.30;C3.ph=0.86;C3.zoom=1.25;}  // south of centre, the slope filling the frame
+    else{C3.zoom=1;}
+  } else if(b.getAttribute('data-ph')){
+    PANO=false;C3.ph=parseFloat(b.getAttribute('data-ph'));
+  } else return;
+  markTilt();draw3();
+});
+
+/* Rotate, flip, throw and remove, as four named actions. A tablet has no R,
+   F or Del key, so the bar on the plan and the keys now drive the same code -
+   and with a mouse, nothing on screen used to say the keys existed. */
+function rotSel(deg){if(sel){sel.a+=deg*D2R;lastAngle=sel.a;recompute();}}
+function flipSel(){if(sel&&CAT[sel.def].k==='c'){sel.hand*=-1;lastHand=sel.hand;recompute();}}
+function throwSel(){if(sel&&CAT[sel.def].k==='t'){sel.thrown=!sel.thrown;recompute();}}
+function delSel(){
+  if(!sel)return;
+  pieces=pieces.filter(function(p){return p!==sel;});
+  sel=null;activeEnd=null;recompute();
+}
+/* Cheap enough to call from every redraw, including the 60 fps run loop,
+   because it does nothing unless the selection actually changed. */
+var selKey='';
+function syncSelBar(){
+  var bar=$('selbar');if(!bar)return;
+  var k=sel?(sel.def+'#'+sel.id):'';
+  if(k===selKey)return;
+  selKey=k;
+  bar.hidden=!sel;
+  if(!sel)return;
+  $('s-flip').disabled=CAT[sel.def].k!=='c';
+  $('s-throw').disabled=CAT[sel.def].k!=='t';
+}
+$('s-rl').onclick=function(){rotSel(-15);};
+$('s-rr').onclick=function(){rotSel(15);};
+$('s-flip').onclick=flipSel;
+$('s-throw').onclick=throwSel;
+$('s-del').onclick=delSel;
+
+window.addEventListener('keydown',function(ev){
+  if(ev.target.tagName==='INPUT')return;
+  if(ev.key==='r'||ev.key==='R'){rotSel(ev.shiftKey?-15:15);}
+  else if(ev.key==='f'||ev.key==='F'){flipSel();}
+  else if(ev.key==='Delete'||ev.key==='Backspace'){
+    if(sel){ev.preventDefault();delSel();}}
+  else if(ev.key==='Escape'){sel=null;activeEnd=null;redraw();}
+});
+
+/* ============================ PALETTE ===================================== */
+function thumb(key){
+  var c=document.createElement('canvas'),d=CAT[key],W=30,H=22;
+  c.width=W*2;c.height=H*2;c.style.width=W+'px';c.style.height=H+'px';
+  var g=c.getContext('2d');g.scale(2,2);
+  var tmp={def:key,x:0,y:0,a:0,hand:1,thrown:false};
+  var rs=[routePts(tmp,'out')];if(d.k==='t')rs.push(routePts(tmp,'div'));
+  var xs=[],ys=[];rs.forEach(function(p){p.forEach(function(q){xs.push(q[0]);ys.push(q[1]);});});
+  var x0=Math.min.apply(null,xs),x1=Math.max.apply(null,xs);
+  var y0=Math.min.apply(null,ys),y1=Math.max.apply(null,ys);
+  var sc=Math.min((W-6)/Math.max(x1-x0,0.6),(H-6)/Math.max(y1-y0,0.6));
+  function fx(x){return 3+(x-x0)*sc+((W-6)-(x1-x0)*sc)/2;}
+  function fy(y){return H-3-((y-y0)*sc+((H-6)-(y1-y0)*sc)/2);}
+  rs.forEach(function(p){
+    g.beginPath();g.moveTo(fx(p[0][0]),fy(p[0][1]));
+    for(var i=1;i<p.length;i++)g.lineTo(fx(p[i][0]),fy(p[i][1]));
+    g.lineWidth=4;g.strokeStyle='rgba(120,118,110,.55)';g.lineCap='round';g.stroke();
+    g.lineWidth=1.3;g.strokeStyle='#d2a85c';g.stroke();
+  });
+  return c;
+}
+[['pal-s',['s12','s24','s60']],['pal-c',['c24','c36','c48','c54','c60']],['pal-t',['tl','tr']]]
+.forEach(function(grp){
+  var host=$(grp[0]);
+  grp[1].forEach(function(key){
+    var el=document.createElement('div');el.className='pc';
+    el.appendChild(thumb(key));
+    var s=document.createElement('span');s.innerHTML=CAT[key].n+'<em>'+CAT[key].s+'</em>';
+    el.appendChild(s);
+    el.addEventListener('pointerdown',function(ev){startPaletteDrag(key,ev);});
+    host.appendChild(el);
+  });
+});
+
+/* ============================ SAVE / LOAD ================================= */
+function r4(n){return Math.round(n*10000)/10000;}
+function serialize(){return pieces.map(function(p){
+  var o={d:p.def,x:r4(p.x),y:r4(p.y),a:r4(p.a),h:p.hand,t:p.thrown?1:0};
+  if(p.len)o.l=r4(p.len);return o;});}
+function deserialize(arr){
+  if(!Array.isArray(arr))return false;
+  var out=[];
+  arr.slice(0,800).forEach(function(o){
+    if(!o||!CAT[o.d])return;
+    var x=+o.x,y=+o.y,a=+o.a;
+    if(!isFinite(x)||!isFinite(y)||!isFinite(a))return;
+    var p={id:nextId++,def:o.d,x:x,y:y,a:a,hand:o.h===-1?-1:1,thrown:!!o.t};
+    if(isFinite(+o.l)&&+o.l>0)p.len=Math.min(40,+o.l);
+    out.push(p);
+  });
+  if(!out.length)return false;
+  pieces=out;sel=null;activeEnd=null;return true;
+}
+var AUTO='gardenrail.bench.v2',autoT=null,layoutsT=null;
+function autosave(){
+  clearTimeout(autoT);
+  autoT=setTimeout(function(){try{localStorage.setItem(AUTO,JSON.stringify(serialize()));}catch(e){}},400);
+}
+function hasAPI(){return !!(window.pywebview&&window.pywebview.api);}
+
+/* ===================== WHERE LAYOUTS ARE KEPT =============================
+   Two backends behind one interface. In the desktop window pywebview's file
+   API writes layouts/*.json, where the project log and the toolkit README say
+   they are: plain files, hand-editable, backed up with the rest of the repo.
+   Installed on a phone or tablet there is no such folder, so the same records
+   go into IndexedDB, and Export/Import move them in and out as the identical
+   JSON. The record shape is the same either way, so a file written by one is
+   readable by the other. */
+/* Windows device names: a layout called NUL would appear to save and then not
+   exist, so the stem is checked before a file is named after it - the same
+   list main.py keeps. Spelled as strings, not regex literals, because
+   tools/audit.py reads inside a literal and would report the words as
+   undefined names. */
+var RESERVED=new RegExp('^(con|prn|aux|nul|com[1-9]|lpt[1-9])$','i');
+var BADCHARS=new RegExp('[^A-Za-z0-9 _-]','g'),RUNS=new RegExp('\\s+','g');
+function slugName(name){
+  var t=String(name).replace(BADCHARS,'').trim().replace(RUNS,'-').slice(0,60);
+  if(RESERVED.test(t.split('.')[0]))t+='-layout';
+  return t||'layout';
+}
+/* Local time WITH its offset, matching main.py, so sorting survives a
+   daylight-saving change and the two backends sort the same way. */
+function nowIso(){
+  var d=new Date(),o=-d.getTimezoneOffset(),sg=o<0?'-':'+',a=Math.abs(o);
+  function p(n){return ('0'+n).slice(-2);}
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'
+    +p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())
+    +sg+p(Math.floor(a/60))+':'+p(a%60);
+}
+function fnum(v){var f=parseFloat(v);return (isFinite(f)?f:0);}
+function record(name,payload){
+  payload=payload||{};
+  return {name:String(name).slice(0,60),saved:nowIso(),ft:fnum(payload.ft),
+          closed:!!payload.closed,openEnds:fnum(payload.openEnds)|0,
+          pieces:payload.pieces||[]};
+}
+var IDB={p:null};
+function idb(){
+  if(IDB.p)return IDB.p;
+  IDB.p=new Promise(function(res,rej){
+    if(!window.indexedDB)return rej(new Error('no storage in this browser'));
+    /* v2 added `meta`, which is where the inventory lives. */
+    var rq=indexedDB.open('gardenrail',2);
+    rq.onupgradeneeded=function(){
+      if(!rq.result.objectStoreNames.contains('layouts'))
+        rq.result.createObjectStore('layouts',{keyPath:'file'});
+      if(!rq.result.objectStoreNames.contains('meta'))
+        rq.result.createObjectStore('meta',{keyPath:'name'});
+    };
+    rq.onsuccess=function(){res(rq.result);};
+    rq.onerror=function(){rej(rq.error||new Error('storage unavailable'));};
+  });
+  return IDB.p;
+}
+function idbTx(mode,fn){return idbOn('layouts',mode,fn);}
+function idbOn(store,mode,fn){
+  return idb().then(function(db){
+    return new Promise(function(res,rej){
+      var tx=db.transaction(store,mode),rq=fn(tx.objectStore(store));
+      tx.oncomplete=function(){res(rq?rq.result:undefined);};
+      tx.onerror=tx.onabort=function(){rej(tx.error||new Error('storage failed'));};
+    });
+  });
+}
+function summary(r){
+  return {file:r.file,name:String(r.name||r.file||'').slice(0,60),ft:fnum(r.ft),
+          closed:!!r.closed,openEnds:fnum(r.openEnds)|0,saved:String(r.saved||'')};
+}
+var Store={
+  desktop:function(){return hasAPI();},
+  /* {layouts:[summary], unreadable:[file]} - the shape main.py returns. A
+     record that is not a layout is reported rather than skipped in silence,
+     for the same reason the desktop side reports an unparsable file. */
+  list:function(){
+    if(hasAPI())return window.pywebview.api.list_layouts();
+    return idbTx('readonly',function(st){return st.getAll();}).then(function(rows){
+      var out=[],bad=[];
+      (rows||[]).forEach(function(r){
+        if(r&&Array.isArray(r.pieces))out.push(summary(r));
+        else if(r&&r.file)bad.push(r.file);
+      });
+      out.sort(function(a,b){return a.saved<b.saved?1:(a.saved>b.saved?-1:0);});
+      return {layouts:out,unreadable:bad};
+    });
+  },
+  load:function(file){
+    if(hasAPI())return window.pywebview.api.load_layout(file);
+    return idbTx('readonly',function(st){return st.get(String(file));}).then(function(r){
+      if(!r)throw new Error('not here any more');
+      return r;
+    });
+  },
+  save:function(name,payload){
+    if(hasAPI())return window.pywebview.api.save_layout(name,payload);
+    var rec=record(name,payload);
+    /* Saving twice under one name keeps the name and appends -2 to the file,
+       exactly as main.py does, so the two backends never disagree. */
+    return idbTx('readonly',function(st){return st.getAllKeys();}).then(function(keys){
+      keys=keys||[];
+      var base=slugName(name),file=base+'.json',n=2;
+      while(keys.indexOf(file)>=0){file=base.slice(0,56)+'-'+n+'.json';n++;}
+      rec.file=file;
+      return idbTx('readwrite',function(st){return st.put(rec);}).then(function(){return file;});
+    });
+  },
+  remove:function(file){
+    if(hasAPI())return window.pywebview.api.delete_layout(file);
+    return idbTx('readwrite',function(st){return st.delete(String(file));}).then(function(){return true;});
+  },
+  /* Small named records that are not layouts - at present just the
+     inventory. A file beside layouts/ in the desktop app, a row in `meta`
+     everywhere else. */
+  meta:function(name){
+    if(hasAPI())return window.pywebview.api.load_meta(name);
+    return idbOn('meta','readonly',function(st){return st.get(String(name));})
+      .then(function(r){return (r&&r.data)||{};});
+  },
+  setMeta:function(name,data){
+    if(hasAPI())return window.pywebview.api.save_meta(name,data||{});
+    return idbOn('meta','readwrite',function(st){
+      return st.put({name:String(name),data:data||{}});}).then(function(){return true;});
+  },
+  /* Every full record, for Export. */
+  all:function(){
+    if(!hasAPI())return idbTx('readonly',function(st){return st.getAll();})
+      .then(function(rows){return (rows||[]).filter(function(r){return r&&Array.isArray(r.pieces);});});
+    return window.pywebview.api.list_layouts().then(function(res){
+      var files=((res&&res.layouts)||[]).map(function(L){return L.file;});
+      var out=[],chain=Promise.resolve();
+      files.forEach(function(f){
+        chain=chain.then(function(){
+          return Store.load(f).then(function(r){if(r){r.file=f;out.push(r);}},function(){});
+        });
+      });
+      return chain.then(function(){return out;});
+    });
+  }
+};
+function note(t){$('dbnote').textContent=t||'';}
+/* "22 Nov 09:12" from the stored ISO timestamp. Two layouts can carry the same
+   name - saving twice appends -2 to the FILE but keeps the name - so without a
+   date the rows were indistinguishable. */
+var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function savedLabel(iso){
+  if(!iso)return '';
+  var d=new Date(iso);
+  if(isNaN(d.getTime()))return String(iso).slice(0,16).replace('T',' ');
+  return d.getDate()+' '+MONTHS[d.getMonth()]+' '
+    +('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+}
+function renderLayouts(res){
+  var host=$('llist');
+  var list=(res&&res.layouts)?res.layouts:(Array.isArray(res)?res:[]);
+  var bad=(res&&res.unreadable)?res.unreadable:[];
+  /* A layout file that cannot be parsed used to be skipped in silence, so a
+     typo in a hand-edited file looked exactly like a deleted layout. */
+  if(bad.length)note(bad.length+' layout file'+(bad.length===1?'':'s')
+    +' could not be read: '+bad.join(', ')+'. Still on disk — check the JSON.');
+  if(!list.length){
+    host.innerHTML='<p class="empty">'
+      +(bad.length?'No readable layouts.':'Nothing saved yet.')+'</p>';
+    return;
+  }
+  host.innerHTML='';
+  list.forEach(function(L){
+    var row=document.createElement('div');row.className='lrow';
+    var b=document.createElement('b');b.textContent=L.name;
+    b.title=L.name+'  ·  '+L.file+(L.saved?'  ·  saved '+L.saved:'');
+    row.appendChild(b);
+    var s=document.createElement('span');
+    s.textContent=(typeof L.ft==='number'?L.ft.toFixed(1)+' ft':'')
+      +(L.saved?' · '+savedLabel(L.saved):'');
+    row.appendChild(s);
+    var ld=document.createElement('button');ld.textContent='Load';
+    ld.onclick=function(){
+      Store.load(L.file).then(function(d){
+        if(d&&deserialize(d.pieces)){
+          nextId=pieces.length+1;recompute();fitAll();note('Loaded "'+L.name+'".');
+        } else note('Could not read "'+L.name+'" — the pieces list is missing or empty.');
+      }).catch(function(e){note('Could not load "'+L.name+'": '+e);});
+    };
+    row.appendChild(ld);
+    var bd=document.createElement('button');bd.textContent='Build';
+    bd.title='Staged build plan for "'+L.name+'", as a PDF';
+    bd.onclick=function(){
+      Store.load(L.file).then(function(d){
+        if(!d||!Array.isArray(d.pieces))
+          throw new Error('the pieces list is missing or empty');
+        createBuild(L.name,d);
+      }).catch(function(e){
+        note('Could not build "'+L.name+'": '+(e&&e.message?e.message:e));});
+    };
+    row.appendChild(bd);
+    var dl=document.createElement('button');dl.textContent='×';
+    dl.title='Delete '+L.file;
+    dl.onclick=function(){
+      if(dl.dataset.armed){
+        Store.remove(L.file)
+          .then(function(){note('Deleted "'+L.name+'".');refreshLayouts();})
+          .catch(function(e){note('Could not delete: '+e);});
+      }
+      else{dl.dataset.armed='1';dl.textContent='Sure?';
+        setTimeout(function(){if(dl.dataset.armed){delete dl.dataset.armed;dl.textContent='×';}},3000);}
+    };
+    row.appendChild(dl);
+    host.appendChild(row);
+  });
+}
+function refreshLayouts(){
+  clearTimeout(layoutsT);          /* the startup fallback has done its job */
+  $('openfolder').hidden=!Store.desktop();   /* only the window has a folder */
+  Store.list().then(renderLayouts)
+    .catch(function(e){note('Could not list layouts: '+e);});
+}
+$('save').onclick=function(){
+  if(!pieces.length){note('Nothing to save.');return;}
+  var total=0;pieces.forEach(function(p){total+=pieceLen(p);});
+  var name=($('lname').value||'').trim().slice(0,60)||('Layout '+new Date().toLocaleDateString());
+  Store.save(name,{pieces:serialize(),ft:+total.toFixed(1),
+      closed:!!(circuit&&circuit.loop),openEnds:openEnds().length}).then(function(){
+    $('lname').value='';note('Saved "'+name+'".');refreshLayouts();
+  }).catch(function(e){note('Could not save: '+e);});
+};
+/* The file API had an open_folder method with nothing calling it. Both the
+   project log and the toolkit README tell you these files are hand-editable,
+   so a way to get at them belongs in the UI. */
+$('openfolder').onclick=function(){
+  if(!hasAPI()){note('That needs the desktop app.');return;}
+  window.pywebview.api.open_folder().catch(function(e){note('Could not open it: '+e);});
+};
+
+/* ============================ VIEW MODES / LOOP =========================== */
+var mode='split';
+function applyMode(){
+  $('pane2d').style.display=(mode==='3d')?'none':'';
+  $('pane3d').style.display=(mode==='2d')?'none':'';
+  Array.prototype.forEach.call(document.querySelectorAll('#views button'),function(b){
+    b.classList.toggle('on',b.dataset.v===mode);});
+  resize();
+}
+Array.prototype.forEach.call(document.querySelectorAll('#views button'),function(b){
+  b.onclick=function(){
+    modeChosen=true;mode=b.dataset.v;applyMode();
+    /* On a phone a mode change halves or doubles the pane's height, which
+       leaves the railway sitting off the bottom of it. In a wide window the
+       panes keep their height and a re-fit would only throw away the zoom. */
+    if(NARROW.matches)fitAll();
+  };});
+$('scen').onclick=function(){
+  SCENERY=!SCENERY;
+  this.classList.toggle('on',SCENERY);
+  TERR=null;                      // mesh resolution and scatter both change
+  redraw();
+};
+$('hint3').textContent='Scenery is drawn from the site photos \u2014 only the oak, '+
+  'birdbath and well are surveyed.';
+var fitted=false;
+function resize(){
+  [[c2,g2],[c3,g3]].forEach(function(pair){
+    var cv=pair[0],ctx=pair[1],r=cv.getBoundingClientRect();
+    var dpr=Math.min(window.devicePixelRatio||1,2);
+    cv.width=Math.max(1,Math.round(r.width*dpr));cv.height=Math.max(1,Math.round(r.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  });
+  if(!fitted && c2.getBoundingClientRect().width>40){fitted=true;fit2();fit3();}
+  redraw();
+}
+function fitAll(){fit2();fit3();redraw();}
+$('fit').onclick=fitAll;
+$('p-oval').onclick=function(){loadPreset('oval');};
+$('p-full').onclick=function(){loadPreset('full');};
+$('clear').onclick=function(){pieces=[];sel=null;activeEnd=null;recompute();hint2('Cleared.');};
+var runBtn=$('run');
+runBtn.onclick=function(){running=!running;runBtn.textContent=running?'Stop':'Run train';
+  runBtn.classList.toggle('go',!running);};
+var last=0;
+function tick(now){
+  var dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(running&&circuit&&circuit.len>1){
+    trainS+=dt*parseFloat($('speed').value);
+    if(!circuit.loop){var span=circuit.len-9;
+      if(span>1){var m=trainS%(span*2);trainS=(m<span?m:span*2-m);}}
+    redraw();
+  }
+  requestAnimationFrame(tick);
+}
+window.addEventListener('resize',function(){resize();});
+applyMode();
+(function(){
+  var ok=false;
+  try{var s=localStorage.getItem(AUTO);if(s)ok=deserialize(JSON.parse(s));}catch(e){}
+  if(ok){recompute();hint2('Picked up where you left off.');}
+  else loadPreset('oval');
+  // let the grid settle before measuring the canvases
+  requestAnimationFrame(function(){resize();fitAll();});
+})();
+/* pywebviewready is the real signal; the timeout is a fallback in case it has
+   already fired before this script ran. refreshLayouts clears it, so the list
+   is fetched once rather than twice on every launch. */
+window.addEventListener('pywebviewready',function(){
+  refreshLayouts();loadInventory();});
+layoutsT=setTimeout(function(){refreshLayouts();loadInventory();},900);
+requestAnimationFrame(tick);
+
+/* ===================== THE INVENTORY PANEL ================================
+   What is in the shed. Kept wherever the layouts are kept - a file beside
+   them in the desktop window, the browser's own storage on a phone - and
+   subtracted from the build plan's shopping. */
+var INVENTORY={};
+function renderInventory(){
+  var host=$('invlist');
+  host.innerHTML='';
+  STOCK.forEach(function(it){
+    var row=document.createElement('div');row.className='inv';
+    var lab=document.createElement('label');
+    lab.textContent=it.n;
+    lab.title=it.n+(it.buy?'  \u2014  '+it.buy:'');
+    lab.setAttribute('for','inv-'+it.k);
+    var inp=document.createElement('input');
+    inp.type='number';inp.min='0';inp.step='1';inp.id='inv-'+it.k;
+    inp.value=INVENTORY[it.k]>0?INVENTORY[it.k]:'';
+    inp.placeholder='0';
+    inp.onchange=function(){
+      var v=parseFloat(inp.value);
+      if(!isFinite(v)||v<0)v=0;
+      if(v)INVENTORY[it.k]=v; else delete INVENTORY[it.k];
+      inp.value=v?v:'';
+      saveInventory();
+      renderShortfall();
+    };
+    var u=document.createElement('span');u.textContent=it.u||'';
+    row.appendChild(lab);row.appendChild(inp);row.appendChild(u);
+    host.appendChild(row);
+  });
+}
+var invT=null;
+function saveInventory(){
+  clearTimeout(invT);
+  invT=setTimeout(function(){
+    Store.setMeta('inventory',INVENTORY)
+      .catch(function(e){note('Could not save the inventory: '+e);});
+  },400);
+}
+function loadInventory(){
+  return Store.meta('inventory').then(function(d){
+    INVENTORY={};
+    if(d)STOCK.forEach(function(it){
+      var v=parseFloat(d[it.k]);
+      if(isFinite(v)&&v>0)INVENTORY[it.k]=v;
+    });
+    renderInventory();renderShortfall();
+  },function(){renderInventory();renderShortfall();});
+}
+/* What is still to buy, phase by phase. The same arithmetic the build plan
+   prints, on screen so it answers "can I start phase 1 this weekend?". */
+function renderShortfall(){
+  var host=$('shortlist');
+  if(!host)return;
+  if(!pieces.length){host.innerHTML='<p class="empty">Nothing laid.</p>';return;}
+  var sf=shortfall(buildContext(),INVENTORY),out='',any=false;
+  sf.phases.forEach(function(ph){
+    var rows='';
+    ph.rows.forEach(function(r){
+      if(r.buy<=0)return;
+      var it=STOCK_BY[r.k];
+      rows+='<dt title="'+esc(it.n+(it.buy?' \u2014 '+it.buy:''))+'">'+esc(it.n)+'</dt>'
+        +'<dd>'+r.buy+esc(stockUnit(it,r.buy))+'</dd>';
+    });
+    if(!rows)return;
+    any=true;
+    out+='<h4>Phase '+ph.n+' \u2014 '+esc(ph.title)+'</h4>'+rows;
+  });
+  host.innerHTML=any?'<dl class="sf">'+out+'</dl>'
+    :'<p class="empty">Nothing outstanding \u2014 the inventory covers the whole build.</p>';
+}
+
+$('invclear').onclick=function(){
+  if($('invclear').dataset.armed){
+    INVENTORY={};saveInventory();renderInventory();renderShortfall();
+    delete $('invclear').dataset.armed;$('invclear').textContent='Clear inventory';
+    note('Inventory cleared.');
+  } else {
+    $('invclear').dataset.armed='1';$('invclear').textContent='Sure?';
+    setTimeout(function(){
+      if($('invclear').dataset.armed){
+        delete $('invclear').dataset.armed;$('invclear').textContent='Clear inventory';
+      }},3000);
+  }
+};
+$('build').onclick=function(){
+  if(!pieces.length){note('Nothing laid to build.');return;}
+  var name=($('lname').value||'').trim().slice(0,60)
+    ||(circuit&&circuit.loop?'Layout':'Layout');
+  createBuild(name,null);
+};
+
+/* ===================== INSTALLED ON A PHONE OR TABLET =====================
+   None of this runs in the desktop window: pywebview serves the page from
+   file://, where there is no service worker and no install prompt. */
+var TOUCH=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+
+/* ---- the two side panels, as drawers ----------------------------------- */
+function closeDrawers(){
+  $('palette').classList.remove('open');
+  $('info').classList.remove('open');
+  $('scrim').classList.remove('on');
+}
+function toggleDrawer(id){
+  var el=$(id),was=el.classList.contains('open');
+  closeDrawers();
+  if(!was){el.classList.add('open');$('scrim').classList.add('on');}
+}
+$('t-pal').onclick=function(){toggleDrawer('palette');};
+$('t-info').onclick=function(){toggleDrawer('info');};
+$('scrim').onclick=closeDrawers;
+/* Rotating a tablet to landscape brings the panels back as columns; a drawer
+   left open would then be a panel floating over its own column. */
+window.addEventListener('resize',function(){if(window.innerWidth>900)closeDrawers();});
+
+/* Split is the right default in a 1420 px window and the wrong one on a phone,
+   where it halves an already short plan. Follows the same 900 px the stylesheet
+   uses, and keeps following it - a tablet put into its keyboard case is a wide
+   screen again - until the moment the Plan/Split/3D buttons are touched, after
+   which the choice is the user's and is left alone. */
+var NARROW=window.matchMedia('(max-width:900px)'),modeChosen=false;
+function autoMode(){
+  if(modeChosen)return;
+  var want=NARROW.matches?'2d':'split';
+  if(want!==mode){mode=want;applyMode();fitAll();}
+}
+if(NARROW.addEventListener)NARROW.addEventListener('change',autoMode);
+else if(NARROW.addListener)NARROW.addListener(autoMode);
+requestAnimationFrame(autoMode);         /* once the pane has its real width */
+
+/* ---- export and import ------------------------------------------------- */
+function download(name,text){
+  var url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+  var a=document.createElement('a');
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},0);
+}
+$('export').onclick=function(){
+  Store.all().then(function(recs){
+    if(!recs.length){note('Nothing saved to export.');return;}
+    download('garden-railway-layouts.json',
+      JSON.stringify({app:'garden-railway',exported:nowIso(),layouts:recs},null,1));
+    note(recs.length+' layout'+(recs.length===1?'':'s')+' written to your downloads.');
+  }).catch(function(e){note('Could not export: '+e);});
+};
+$('import').onclick=function(){$('importfile').value='';$('importfile').click();};
+$('importfile').onchange=function(){
+  var f=this.files&&this.files[0];
+  if(!f)return;
+  var rd=new FileReader();
+  rd.onerror=function(){note('Could not read that file.');};
+  rd.onload=function(){
+    var d;
+    try{d=JSON.parse(rd.result);}catch(e){note('That file is not valid JSON.');return;}
+    /* Three shapes are accepted: an export bundle, a bare array, and a single
+       layouts/*.json written by the desktop app. */
+    var recs=Array.isArray(d)?d
+      :(d&&Array.isArray(d.layouts)?d.layouts
+      :(d&&Array.isArray(d.pieces)?[d]:null));
+    if(!recs||!recs.length){note('No layouts in that file.');return;}
+    var n=0,chain=Promise.resolve();
+    recs.slice(0,200).forEach(function(r){
+      if(!r||!Array.isArray(r.pieces))return;
+      chain=chain.then(function(){
+        return Store.save(r.name||'Imported layout',
+          {pieces:r.pieces,ft:r.ft,closed:r.closed,openEnds:r.openEnds})
+          .then(function(){n++;});
+      });
+    });
+    chain.then(function(){
+      note(n?('Imported '+n+' layout'+(n===1?'':'s')+'.'):'Nothing in that file was a layout.');
+      refreshLayouts();
+    }).catch(function(e){note('Could not import: '+e);});
+  };
+  rd.readAsText(f);
+};
+
+/* ---- install ------------------------------------------------------------
+   Chrome's own menu reports every app on stonecrestpipes.github.io as already
+   installed, because they share one origin. The page's own prompt checks the
+   start URL, so this button works where the menu does not. prompt() must be
+   called as the finger lifts: on touch, Chrome counts only the lift as the
+   user gesture. */
+var installEvt=null;
+window.addEventListener('beforeinstallprompt',function(ev){
+  ev.preventDefault();
+  installEvt=ev;
+  if(!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))
+    $('install').hidden=false;
+});
+$('install').addEventListener('pointerup',function(){
+  if(!installEvt)return;
+  var e=installEvt;
+  installEvt=null;$('install').hidden=true;
+  e.prompt();
+});
+window.addEventListener('appinstalled',function(){
+  installEvt=null;$('install').hidden=true;
+});
+
+/* ---- offline ------------------------------------------------------------ */
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
